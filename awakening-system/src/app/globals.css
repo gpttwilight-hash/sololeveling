@@ -1,0 +1,315 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   GAME DESIGN TOKENS — Система Пробуждения
+   ============================================================ */
+
+@theme inline {
+  /* Fonts */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Backgrounds */
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary: var(--bg-tertiary);
+  --color-bg-glass: var(--bg-glass);
+
+  /* Text */
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+
+  /* Attribute colors */
+  --color-strength: var(--color-strength);
+  --color-intellect: var(--color-intellect);
+  --color-charisma: var(--color-charisma);
+  --color-discipline: var(--color-discipline);
+  --color-wealth: var(--color-wealth);
+
+  /* System colors */
+  --color-xp: var(--color-xp);
+  --color-level-up: var(--color-level-up);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+  --color-rest: var(--color-rest);
+
+  /* Rank colors */
+  --color-rank-e: var(--rank-e);
+  --color-rank-d: var(--rank-d);
+  --color-rank-c: var(--rank-c);
+  --color-rank-b: var(--rank-b);
+  --color-rank-a: var(--rank-a);
+  --color-rank-s: var(--rank-s);
+
+  /* Borders */
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-active: var(--border-active);
+
+  /* shadcn compatibility */
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--bg-secondary);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--bg-secondary);
+  --color-popover-foreground: var(--text-primary);
+  --color-primary: var(--color-xp);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--bg-tertiary);
+  --color-secondary-foreground: var(--text-secondary);
+  --color-muted: var(--bg-tertiary);
+  --color-muted-foreground: var(--text-secondary);
+  --color-accent: var(--bg-tertiary);
+  --color-accent-foreground: var(--text-primary);
+  --color-destructive: var(--color-danger);
+  --color-border: var(--border-default);
+  --color-input: var(--bg-tertiary);
+  --color-ring: var(--color-xp);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius: 12px;
+
+  /* Shadows */
+  --shadow-card: var(--shadow-card);
+  --shadow-elevated: var(--shadow-elevated);
+  --shadow-glow: var(--shadow-glow);
+
+  /* shadcn sidebar */
+  --color-sidebar-ring: var(--border-subtle);
+  --color-sidebar-border: var(--border-subtle);
+  --color-sidebar-accent-foreground: var(--text-primary);
+  --color-sidebar-accent: var(--bg-tertiary);
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-primary: var(--color-xp);
+  --color-sidebar-foreground: var(--text-secondary);
+  --color-sidebar: var(--bg-secondary);
+  --color-chart-1: var(--color-strength);
+  --color-chart-2: var(--color-intellect);
+  --color-chart-3: var(--color-charisma);
+  --color-chart-4: var(--color-discipline);
+  --color-chart-5: var(--color-wealth);
+}
+
+/* ============================================================
+   CSS CUSTOM PROPERTIES (PRD §3.2)
+   ============================================================ */
+
+:root {
+  /* === БАЗА (Dark Theme) === */
+  --bg-primary:       #0A0A0F;
+  --bg-secondary:     #12121A;
+  --bg-tertiary:      #1A1A25;
+  --bg-glass:         rgba(255, 255, 255, 0.03);
+
+  /* === ТЕКСТ === */
+  --text-primary:     #F0F0F5;
+  --text-secondary:   #8A8A9A;
+  --text-tertiary:    #55556A;
+
+  /* === АКЦЕНТЫ (по атрибутам) === */
+  --color-strength:   #E84855;
+  --color-intellect:  #3B82F6;
+  --color-charisma:   #F59E0B;
+  --color-discipline: #8B5CF6;
+  --color-wealth:     #10B981;
+
+  /* === СИСТЕМНЫЕ === */
+  --color-xp:         #6366F1;
+  --color-level-up:   #FBBF24;
+  --color-success:    #22C55E;
+  --color-warning:    #F59E0B;
+  --color-danger:     #EF4444;
+  --color-rest:       #06B6D4;
+
+  /* === РАНГИ === */
+  --rank-e:           #6B7280;
+  --rank-d:           #3B82F6;
+  --rank-c:           #8B5CF6;
+  --rank-b:           #F59E0B;
+  --rank-a:           #EF4444;
+  --rank-s:           #FBBF24;
+
+  /* === BORDER / DIVIDERS === */
+  --border-subtle:    rgba(255, 255, 255, 0.06);
+  --border-default:   rgba(255, 255, 255, 0.10);
+  --border-active:    rgba(255, 255, 255, 0.20);
+
+  /* === SHADOWS === */
+  --shadow-card:      0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-elevated:  0 10px 40px rgba(0, 0, 0, 0.4);
+  --shadow-glow:      0 0 20px rgba(99, 102, 241, 0.15);
+
+  /* === TRANSITIONS === */
+  --transition-page:     300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast:     150ms ease;
+  --transition-default:  200ms ease;
+  --transition-slow:     300ms ease;
+  --transition-xp-fill:  600ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-level-up: 800ms cubic-bezier(0.2, 0, 0, 1);
+  --stagger-delay:       50ms;
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-geist-sans), system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Typography scale */
+  .text-display {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  h1, .text-h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  h2, .text-h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  h3, .text-h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--border-active);
+  }
+}
+
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
+
+@layer utilities {
+  /* Glass card */
+  .glass-card {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    transition: border-color var(--transition-default);
+  }
+
+  .glass-card:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  /* Glow effects */
+  .glow-xp {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .glow-level-up {
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.3);
+  }
+
+  /* Rank badge colors */
+  .rank-e { color: var(--rank-e); }
+  .rank-d { color: var(--rank-d); }
+  .rank-c { color: var(--rank-c); }
+  .rank-b { color: var(--rank-b); }
+  .rank-a { color: var(--rank-a); }
+  .rank-s { color: var(--rank-s); }
+
+  /* Attribute colors */
+  .attr-str { color: var(--color-strength); }
+  .attr-int { color: var(--color-intellect); }
+  .attr-cha { color: var(--color-charisma); }
+  .attr-dis { color: var(--color-discipline); }
+  .attr-wlt { color: var(--color-wealth); }
+
+  /* XP progress bar animation */
+  .xp-bar-fill {
+    transition: width var(--transition-xp-fill);
+    background: linear-gradient(90deg, var(--color-xp), #4F46E5);
+    border-radius: 999px;
+  }
+
+  /* Shimmer loading effect */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--bg-secondary) 25%,
+      var(--bg-tertiary) 50%,
+      var(--bg-secondary) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Pulse for streaks */
+  @keyframes streak-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.15); }
+  }
+
+  .streak-pulse {
+    animation: streak-pulse 2s ease-in-out infinite;
+  }
+
+  /* Overline text style */
+  .text-overline {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+}
