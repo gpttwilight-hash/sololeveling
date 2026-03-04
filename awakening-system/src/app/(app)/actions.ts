@@ -106,6 +106,7 @@ export async function completeQuest(questId: string): Promise<CompleteQuestResul
       quests_total: totalCount,
       xp_earned: (dp?.xp_earned ?? 0) + xpEarned,
       completion_rate: completedCount / totalCount,
+      is_rest_day: dp?.is_rest_day ?? false,
     });
 
   // Check achievements

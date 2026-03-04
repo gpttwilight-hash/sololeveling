@@ -56,6 +56,31 @@ export default async function DashboardPage() {
     <div className="space-y-5">
       <ProfileCard profile={profile} />
 
+      {profile.active_debuffs && profile.active_debuffs.length > 0 && (
+        <div
+          className="glass-card px-5 py-4"
+          style={{
+            borderColor: 'var(--color-danger)',
+            background: 'var(--bg-secondary)',
+            boxShadow: '0 0 15px rgba(239, 68, 68, 0.1)'
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <div className="text-xl mt-0.5">⚠️</div>
+            <div>
+              <p className="font-bold text-sm" style={{ color: 'var(--color-danger)' }}>Системное предупреждение</p>
+              {profile.active_debuffs.map((d, i) => (
+                <p key={i} className="text-xs mt-1 line-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                  {d.type === "laziness"
+                    ? `Обнаружена лень. Штраф к получаемому опыту: -${d.xp_penalty ?? 25}%. Выполняйте ежедневные квесты 3 дня подряд, чтобы снять дебафф.`
+                    : "Обнаружено выгорание. Система настоятельно рекомендует взять день отдыха, чтобы восстановить силы."}
+                </p>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="glass-card px-5 py-4">
         <StreakBadge streak={profile.current_streak} coins={profile.coins} />
       </div>

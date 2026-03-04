@@ -4,6 +4,7 @@ import { useState, useTransition, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check } from "lucide-react";
 import { completeQuest } from "@/app/(app)/actions";
+import { toast } from "sonner"; // Добавляем тост для поддержки T-036
 import type { Quest } from "@/types/game";
 
 const ATTR_LABELS: Record<string, string> = {
@@ -52,7 +53,12 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
 
     startTransition(async () => {
       try {
-        await completeQuest(quest.id);
+        const result = await completeQuest(quest.id);
+        toast.success(`Квест выполнен! +${result.xpEarned} XP`);
+        if (result.leveledUp) toast.success(`Уровень повышен! Уровень ${result.newLevel}`);
+        if (result.achievementsUnlocked && result.achievementsUnlocked.length > 0) {
+            toast.success("Новое достижение разблокировано!");
+        }
       } catch {
         // Rollback optimistic update on error
         setOptimisticCompleted((prev) => {
@@ -60,6 +66,7 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
           next.delete(quest.id);
           return next;
         });
+        toast.error("Ошибка при выполнении квеста. Попробуйте еще раз.");
       }
     });
   }
@@ -121,49 +128,53 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05, duration: 0.2 }}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all"
-                style={{
-                  background: isDone ? "var(--bg-glass)" : "var(--bg-secondary)",
-                  border: `1px solid ${isDone ? "var(--border-subtle)" : "var(--border-subtle)"}`,
-                  opacity: isDone ? 0.6 : 1,
-                }}
+                className="w-full text-left"
               >
-                {/* Checkbox button */}
-                <button
-                  onClick={() => handleComplete(quest)}
+                  <button 
                   disabled={isDone || pending}
-                  className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+                  onClick={() => handleComplete(quest)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:brightness-110 active:scale-[0.98]"
                   style={{
-                    background: isDone ? color : "var(--bg-tertiary)",
-                    border: `1.5px solid ${isDone ? color : "var(--border-default)"}`,
+                    background: isDone ? "var(--bg-glass)" : "var(--bg-secondary)",
+                    border: `1px solid ${isDone ? "var(--border-subtle)" : "var(--border-active)"}`,
+                    opacity: isDone ? 0.6 : 1,
                   }}
-                >
-                  {isDone && <Check className="w-3.5 h-3.5 text-white" />}
-                </button>
-
-                {/* Title */}
-                <span
-                  className={`flex-1 text-sm transition-all ${isDone ? "line-through" : ""}`}
-                  style={{ color: isDone ? "var(--text-tertiary)" : "var(--text-primary)" }}
-                >
-                  {quest.title}
-                </span>
-
-                {/* Attribute + XP */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span
-                    className="text-xs font-semibold"
-                    style={{ color }}
                   >
-                    {ATTR_LABELS[quest.attribute]}
-                  </span>
-                  <span
-                    className="text-xs tabular-nums"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    +{quest.xp_reward}
-                  </span>
-                </div>
+                        {/* Checkbox */}
+                        <div
+                        className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+                        style={{
+                            background: isDone ? color : "var(--bg-tertiary)",
+                            border: `1.5px solid ${isDone ? color : "var(--border-default)"}`,
+                        }}
+                        >
+                            {isDone && <Check className="w-3.5 h-3.5 text-white" />}
+                        </div>
+
+                        {/* Title */}
+                        <span
+                        className={`flex-1 text-sm text-left transition-all ${isDone ? "line-through" : ""}`}
+                        style={{ color: isDone ? "var(--text-tertiary)" : "var(--text-primary)" }}
+                        >
+                        {quest.title}
+                        </span>
+
+                        {/* Attribute + XP */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <span
+                            className="text-xs font-semibold"
+                            style={{ color }}
+                        >
+                            {ATTR_LABELS[quest.attribute]}
+                        </span>
+                        <span
+                            className="text-xs tabular-nums"
+                            style={{ color: "var(--text-tertiary)" }}
+                        >
+                            +{quest.xp_reward}
+                        </span>
+                        </div>
+                  </button>
               </motion.div>
             );
           })}

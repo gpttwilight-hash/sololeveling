@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Flame } from "lucide-react";
 import { completeQuest } from "@/app/(app)/actions";
+import { toast } from "sonner";
 import type { Quest } from "@/types/game";
 
 const ATTR_LABELS: Record<string, string> = {
@@ -41,9 +42,15 @@ export function QuestCard({ quest, index = 0 }: QuestCardProps) {
 
     startTransition(async () => {
       try {
-        await completeQuest(quest.id);
+        const result = await completeQuest(quest.id);
+        toast.success(`Квест выполнен! +${result.xpEarned} XP`);
+        if (result.leveledUp) toast.success(`Уровень повышен! Уровень ${result.newLevel}`);
+        if (result.achievementsUnlocked && result.achievementsUnlocked.length > 0) {
+          toast.success("Новое достижение разблокировано!");
+        }
       } catch {
         setDone(false);
+        toast.error("Ошибка при выполнении квеста. Попробуйте еще раз.");
       }
     });
   }
@@ -71,15 +78,15 @@ export function QuestCard({ quest, index = 0 }: QuestCardProps) {
         )}
       </AnimatePresence>
 
-      <div
-        className="glass-card p-4 transition-all"
+      <button
+        onClick={handleComplete}
+        disabled={done}
+        className="glass-card w-full text-left p-4 transition-all hover:brightness-110 active:scale-[0.98]"
         style={{ opacity: done ? 0.65 : 1 }}
       >
         <div className="flex items-start gap-3">
           {/* Checkbox */}
-          <button
-            onClick={handleComplete}
-            disabled={done}
+          <div
             className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
             style={{
               background: done ? color : "var(--bg-tertiary)",
@@ -87,7 +94,7 @@ export function QuestCard({ quest, index = 0 }: QuestCardProps) {
             }}
           >
             {done && <Check className="w-3.5 h-3.5 text-white" />}
-          </button>
+          </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
@@ -126,11 +133,10 @@ export function QuestCard({ quest, index = 0 }: QuestCardProps) {
           </div>
         </div>
 
-        {/* Complete button (full width) for not-done quests */}
+        {/* Visual Complete button (full width) for not-done quests */}
         {!done && (
-          <button
-            onClick={handleComplete}
-            className="w-full mt-3 py-2 rounded-xl text-xs font-semibold transition-all"
+          <div
+            className="w-full mt-3 py-2 rounded-xl text-xs font-semibold transition-all text-center"
             style={{
               background: `${color}18`,
               border: `1px solid ${color}40`,
@@ -138,9 +144,9 @@ export function QuestCard({ quest, index = 0 }: QuestCardProps) {
             }}
           >
             Выполнено ✓
-          </button>
+          </div>
         )}
-      </div>
+      </button>
     </motion.div>
   );
 }
