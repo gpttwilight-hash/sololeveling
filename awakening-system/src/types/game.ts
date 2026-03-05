@@ -35,8 +35,16 @@ export interface Quest {
   coin_reward: number;
   is_active: boolean;
   is_completed: boolean;
+  is_recurring: boolean;
+  last_reset_date?: string;
   sort_order: number;
   streak: number;
+
+  // Habit science fields
+  trigger_time?: string;      // "07:30"
+  trigger_location?: string;  // "Дома"
+  trigger_anchor?: string;    // "После кофе"
+  min_description?: string;   // "Хотя бы 5 отжиманий"
 
   // Epic quests only
   subquests?: Subquest[];
@@ -116,8 +124,15 @@ export interface Profile {
   longest_streak: number;
   total_quests_completed: number;
   rest_days_used_this_week: number;
+  streak_shields?: number;
   active_debuffs: Debuff[];
   onboarding_completed: boolean;
+
+  // Subscription fields
+  subscription_tier?: 'hunter' | 'monarch';
+  subscription_status?: 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete';
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
 }
 
 export interface Debuff {

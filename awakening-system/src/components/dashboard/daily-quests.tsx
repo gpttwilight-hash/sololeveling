@@ -4,7 +4,8 @@ import { useState, useTransition, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check } from "lucide-react";
 import { completeQuest } from "@/app/(app)/actions";
-import { toast } from "sonner"; // Добавляем тост для поддержки T-036
+import { getLevelNarrative, getRankNarrative } from "@/lib/game/level-narratives";
+import { toast } from "sonner";
 import type { Quest } from "@/types/game";
 
 const ATTR_LABELS: Record<string, string> = {
@@ -40,27 +41,31 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
   const completed = optimisticCompleted.size;
   const total = quests.length;
 
-  function handleComplete(quest: Quest) {
+  function handleComplete(quest: Quest, partial = false) {
     if (optimisticCompleted.has(quest.id)) return;
 
-    // Optimistic update
     setOptimisticCompleted((prev) => new Set([...prev, quest.id]));
 
-    // XP popup
+    const xpShown = partial ? Math.round(quest.xp_reward * 0.5) : quest.xp_reward;
     const popupId = `${quest.id}-${++popupCounter.current}`;
-    setPopups((prev) => [...prev, { id: popupId, xp: quest.xp_reward }]);
+    setPopups((prev) => [...prev, { id: popupId, xp: xpShown }]);
     setTimeout(() => setPopups((prev) => prev.filter((p) => p.id !== popupId)), 1500);
 
     startTransition(async () => {
       try {
-        const result = await completeQuest(quest.id);
-        toast.success(`Квест выполнен! +${result.xpEarned} XP`);
-        if (result.leveledUp) toast.success(`Уровень повышен! Уровень ${result.newLevel}`);
+        const result = await completeQuest(quest.id, partial);
+        const label = partial ? "Минимум засчитан" : "Квест выполнен!";
+        toast.success(`${label} +${result.xpEarned} XP`);
+        if (result.leveledUp && result.newLevel) {
+          toast.success(`Уровень ${result.newLevel}! ${getLevelNarrative(result.newLevel)}`, { duration: 4000 });
+        }
+        if (result.rankedUp && result.newRank) {
+          toast.success(getRankNarrative(result.newRank), { duration: 5000 });
+        }
         if (result.achievementsUnlocked && result.achievementsUnlocked.length > 0) {
-            toast.success("Новое достижение разблокировано!");
+          toast.success("Новое достижение разблокировано!");
         }
       } catch {
-        // Rollback optimistic update on error
         setOptimisticCompleted((prev) => {
           const next = new Set(prev);
           next.delete(quest.id);
@@ -128,53 +133,72 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05, duration: 0.2 }}
-                className="w-full text-left"
               >
-                  <button 
-                  disabled={isDone || pending}
-                  onClick={() => handleComplete(quest)}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:brightness-110 active:scale-[0.98]"
+                <div
+                  className="px-4 py-3 rounded-xl transition-all"
                   style={{
                     background: isDone ? "var(--bg-glass)" : "var(--bg-secondary)",
                     border: `1px solid ${isDone ? "var(--border-subtle)" : "var(--border-active)"}`,
                     opacity: isDone ? 0.6 : 1,
                   }}
+                >
+                  {/* Main row */}
+                  <button
+                    disabled={isDone || pending}
+                    onClick={() => handleComplete(quest)}
+                    className="w-full flex items-center gap-3 text-left"
                   >
-                        {/* Checkbox */}
-                        <div
-                        className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
-                        style={{
-                            background: isDone ? color : "var(--bg-tertiary)",
-                            border: `1.5px solid ${isDone ? color : "var(--border-default)"}`,
-                        }}
-                        >
-                            {isDone && <Check className="w-3.5 h-3.5 text-white" />}
-                        </div>
+                    {/* Checkbox */}
+                    <div
+                      className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+                      style={{
+                        background: isDone ? color : "var(--bg-tertiary)",
+                        border: `1.5px solid ${isDone ? color : "var(--border-default)"}`,
+                      }}
+                    >
+                      {isDone && <Check className="w-3.5 h-3.5 text-white" />}
+                    </div>
 
-                        {/* Title */}
-                        <span
-                        className={`flex-1 text-sm text-left transition-all ${isDone ? "line-through" : ""}`}
-                        style={{ color: isDone ? "var(--text-tertiary)" : "var(--text-primary)" }}
-                        >
-                        {quest.title}
-                        </span>
+                    {/* Title */}
+                    <span
+                      className={`flex-1 text-sm text-left transition-all ${isDone ? "line-through" : ""}`}
+                      style={{ color: isDone ? "var(--text-tertiary)" : "var(--text-primary)" }}
+                    >
+                      {quest.title}
+                    </span>
 
-                        {/* Attribute + XP */}
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                        <span
-                            className="text-xs font-semibold"
-                            style={{ color }}
-                        >
-                            {ATTR_LABELS[quest.attribute]}
-                        </span>
-                        <span
-                            className="text-xs tabular-nums"
-                            style={{ color: "var(--text-tertiary)" }}
-                        >
-                            +{quest.xp_reward}
-                        </span>
-                        </div>
+                    {/* Attribute + XP */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-xs font-semibold" style={{ color }}>
+                        {ATTR_LABELS[quest.attribute]}
+                      </span>
+                      <span className="text-xs tabular-nums" style={{ color: "var(--text-tertiary)" }}>
+                        +{quest.xp_reward}
+                      </span>
+                    </div>
                   </button>
+
+                  {/* Min description hint + partial button */}
+                  {!isDone && quest.min_description && (
+                    <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+                      <span className="text-[10px]" style={{ color: "var(--color-success)", opacity: 0.8 }}>
+                        Минимум: {quest.min_description}
+                      </span>
+                      <button
+                        disabled={pending}
+                        onClick={() => handleComplete(quest, true)}
+                        className="text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all hover:brightness-110 active:scale-[0.98]"
+                        style={{
+                          background: "rgba(16,185,129,0.12)",
+                          border: "1px solid rgba(16,185,129,0.3)",
+                          color: "var(--color-success)",
+                        }}
+                      >
+                        Зачесть (+{Math.round(quest.xp_reward * 0.5)} XP)
+                      </button>
+                    </div>
+                  )}
+                </div>
               </motion.div>
             );
           })}

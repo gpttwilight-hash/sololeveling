@@ -30,6 +30,20 @@ export default async function DashboardPage() {
 
   const quests = (questsData ?? []) as unknown as Quest[];
 
+  // Consistency % over last 7 days
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const { data: recentProgress } = await supabase
+    .from("daily_progress")
+    .select("completion_rate, is_rest_day")
+    .eq("user_id", user.id)
+    .gte("date", sevenDaysAgo.toISOString().split("T")[0]);
+
+  const activeDays = (recentProgress ?? []).filter((d) => !d.is_rest_day);
+  const consistencyPct = activeDays.length > 0
+    ? Math.round((activeDays.filter((d) => (d.completion_rate ?? 0) >= 0.8).length / activeDays.length) * 100)
+    : undefined;
+
   const dateStr = new Date().toLocaleDateString("ru-RU", {
     weekday: "short",
     day: "numeric",
@@ -82,7 +96,12 @@ export default async function DashboardPage() {
       )}
 
       <div className="glass-card px-5 py-4">
-        <StreakBadge streak={profile.current_streak} coins={profile.coins} />
+        <StreakBadge
+          streak={profile.current_streak}
+          coins={profile.coins}
+          shields={profile.streak_shields}
+          consistencyPct={consistencyPct}
+        />
       </div>
 
       <div className="glass-card p-5">

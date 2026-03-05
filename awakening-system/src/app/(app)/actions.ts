@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkLevelUp } from "@/lib/game/level-system";
 import { checkRankUp, getRankFromLevel } from "@/lib/game/rank-system";
+import { getLevelFromTotalXP } from "@/lib/game/xp-calculator";
 import { evaluateCondition } from "@/lib/game/achievement-checker";
 import type { CompleteQuestResult, AchievementCondition, Profile } from "@/types/game";
+import { isPremium } from "@/lib/game/subscriptions";
 
-export async function completeQuest(questId: string): Promise<CompleteQuestResult> {
+export async function completeQuest(questId: string, partial = false): Promise<CompleteQuestResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
@@ -37,8 +39,9 @@ export async function completeQuest(questId: string): Promise<CompleteQuestResul
   const debuffs = (profile.active_debuffs as Array<{ type: "laziness" | "burnout"; xp_penalty?: number; triggered_at: string }>) ?? [];
   const laziness = debuffs.find((d) => d.type === "laziness");
   const xpPenaltyMultiplier = laziness ? 1 - (laziness.xp_penalty ?? 25) / 100 : 1;
-  const xpEarned = Math.round(quest.xp_reward * xpPenaltyMultiplier);
-  const coinsEarned = quest.coin_reward;
+  const partialMultiplier = partial ? 0.5 : 1;
+  const xpEarned = Math.round(quest.xp_reward * xpPenaltyMultiplier * partialMultiplier);
+  const coinsEarned = Math.round(quest.coin_reward * partialMultiplier);
 
   // Determine attribute XP column
   const attrColumn = `${quest.attribute}_xp` as
@@ -244,10 +247,28 @@ export async function createQuest(data: {
   description?: string;
   target_value?: number;
   deadline?: string;
+  is_recurring?: boolean;
+  trigger_time?: string;
+  trigger_location?: string;
+  trigger_anchor?: string;
+  min_description?: string;
 }): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
+
+  // Subscription Check: Epic quests are for Monarchs only
+  if (data.type === "epic") {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single() as { data: Profile | null };
+
+    if (!isPremium(profile)) {
+      throw new Error("Эпические квесты доступны только Охотникам ранга Монарх.");
+    }
+  }
 
   const xpByDifficulty: Record<string, number> = {
     easy: 8, medium: 15, hard: 30, legendary: 80,
@@ -255,7 +276,7 @@ export async function createQuest(data: {
   const xp = xpByDifficulty[data.difficulty] ?? 15;
   const coins = Math.ceil(xp * 0.5);
 
-  await supabase.from("quests").insert({
+  const { error: insertError } = await supabase.from("quests").insert({
     user_id: user.id,
     title: data.title,
     type: data.type,
@@ -266,16 +287,74 @@ export async function createQuest(data: {
     description: data.description,
     target_value: data.target_value,
     deadline: data.deadline,
+    is_recurring: data.is_recurring ?? false,
+    trigger_time: data.trigger_time || null,
+    trigger_location: data.trigger_location || null,
+    trigger_anchor: data.trigger_anchor || null,
+    min_description: data.min_description || null,
   });
+
+  if (insertError) throw new Error(`Не удалось создать квест: ${insertError.message}`);
 
   revalidatePath("/quests");
 }
 
-export async function deleteQuest(questId: string): Promise<void> {
+export async function deleteQuest(questId: string): Promise<{ xpRemoved: number; coinsRemoved: number }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
+  // Fetch quest attribute
+  const { data: quest } = await supabase
+    .from("quests")
+    .select("attribute")
+    .eq("id", questId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!quest) throw new Error("Quest not found");
+
+  // Sum all XP/coins earned from this quest
+  const { data: logs } = await supabase
+    .from("quest_logs")
+    .select("xp_earned, coins_earned")
+    .eq("quest_id", questId)
+    .eq("user_id", user.id);
+
+  const xpRemoved = logs?.reduce((s, l) => s + (l.xp_earned ?? 0), 0) ?? 0;
+  const coinsRemoved = logs?.reduce((s, l) => s + (l.coins_earned ?? 0), 0) ?? 0;
+  const completionsRemoved = logs?.length ?? 0;
+
+  // Subtract from profile
+  if (xpRemoved > 0 || coinsRemoved > 0) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("total_xp, coins, total_quests_completed, str_xp, int_xp, cha_xp, dis_xp, wlt_xp, hidden_xp")
+      .eq("id", user.id)
+      .single();
+
+    if (profile) {
+      const attrColumn = `${quest.attribute}_xp` as
+        | "str_xp" | "int_xp" | "cha_xp" | "dis_xp" | "wlt_xp" | "hidden_xp";
+      const newTotalXP = Math.max(0, profile.total_xp - xpRemoved);
+      const newLevel = getLevelFromTotalXP(newTotalXP);
+      const newRank = getRankFromLevel(newLevel).id;
+
+      await supabase
+        .from("profiles")
+        .update({
+          total_xp: newTotalXP,
+          level: newLevel,
+          rank: newRank,
+          coins: Math.max(0, profile.coins - coinsRemoved),
+          total_quests_completed: Math.max(0, profile.total_quests_completed - completionsRemoved),
+          [attrColumn]: Math.max(0, (profile[attrColumn] as number) - xpRemoved),
+        })
+        .eq("id", user.id);
+    }
+  }
+
+  // Soft-delete quest
   await supabase
     .from("quests")
     .update({ is_active: false })
@@ -283,5 +362,8 @@ export async function deleteQuest(questId: string): Promise<void> {
     .eq("user_id", user.id);
 
   revalidatePath("/quests");
-  revalidatePath("/settings");
+  revalidatePath("/dashboard");
+  revalidatePath("/stats");
+
+  return { xpRemoved, coinsRemoved };
 }
