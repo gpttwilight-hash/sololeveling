@@ -46,6 +46,12 @@ export interface Quest {
   trigger_anchor?: string;    // "После кофе"
   min_description?: string;   // "Хотя бы 5 отжиманий"
 
+  // NCT System (Goal Linking)
+  parent_id?: string;
+  narrative?: string;
+  synergy_points?: number;
+  linked_tasks?: Quest[]; // For UI rendering of children
+
   // Epic quests only
   subquests?: Subquest[];
   target_value?: number;

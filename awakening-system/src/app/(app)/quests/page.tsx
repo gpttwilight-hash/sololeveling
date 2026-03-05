@@ -23,12 +23,25 @@ export default async function QuestsPage({ searchParams }: Props) {
     .order("sort_order");
 
   const allQuests = (data ?? []) as unknown as Quest[];
+
+  // Attach linked tasks to their parent Epics
+  allQuests.forEach(quest => {
+    if (quest.parent_id) {
+      const parent = allQuests.find(q => q.id === quest.parent_id);
+      if (parent) {
+        if (!parent.linked_tasks) parent.linked_tasks = [];
+        parent.linked_tasks.push(quest);
+      }
+    }
+  });
+
   const filtered = allQuests.filter((q) => q.type === tab);
+  const activeEpics = allQuests.filter((q) => q.type === "epic" && q.is_active);
 
   const TABS = [
-    { key: "daily",   label: "Ежедневные" },
-    { key: "weekly",  label: "Еженедельные" },
-    { key: "epic",    label: "Эпические" },
+    { key: "daily", label: "Ежедневные" },
+    { key: "weekly", label: "Еженедельные" },
+    { key: "epic", label: "Эпические" },
   ];
 
   return (
@@ -82,7 +95,7 @@ export default async function QuestsPage({ searchParams }: Props) {
       </div>
 
       {/* Add quest form */}
-      <QuestForm />
+      <QuestForm key={tab} initialType={tab as any} activeEpics={activeEpics} />
     </div>
   );
 }

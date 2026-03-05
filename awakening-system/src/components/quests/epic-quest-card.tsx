@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Sword, Trophy } from "lucide-react";
-import { updateEpicProgress, completeQuest } from "@/app/(app)/actions";
+import { Check, Sword, Trophy, Trash2 } from "lucide-react";
+import { updateEpicProgress, completeQuest, deleteQuest } from "@/app/(app)/actions";
+import { toast } from "sonner";
 import type { Quest } from "@/types/game";
 
 interface EpicQuestCardProps {
@@ -11,9 +12,9 @@ interface EpicQuestCardProps {
 }
 
 function getQuickSteps(target: number): number[] {
-  if (target <= 10)   return [1, 2, 5];
-  if (target <= 50)   return [1, 5, 10];
-  if (target <= 200)  return [5, 10, 25, 50];
+  if (target <= 10) return [1, 2, 5];
+  if (target <= 50) return [1, 5, 10];
+  if (target <= 200) return [5, 10, 25, 50];
   if (target <= 1000) return [10, 25, 50, 100];
   return [50, 100, 250, 500];
 }
@@ -24,6 +25,8 @@ export function EpicQuestCard({ quest }: EpicQuestCardProps) {
   const [mode, setMode] = useState<"add" | "set">("add");
   const [completed, setCompleted] = useState(quest.is_completed);
   const [completeError, setCompleteError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleted, setDeleted] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const target = quest.target_value ?? 100;
@@ -65,15 +68,50 @@ export function EpicQuestCard({ quest }: EpicQuestCardProps) {
     });
   }
 
+  function handleDelete() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const result = await deleteQuest(quest.id);
+        setDeleted(true);
+        const parts = [];
+        if (result.xpRemoved > 0) parts.push(`-${result.xpRemoved} XP`);
+        if (result.coinsRemoved > 0) parts.push(`-${result.coinsRemoved} монет`);
+        toast.success(`Эпический квест удалён${parts.length ? ` (${parts.join(", ")})` : ""}`);
+      } catch {
+        setConfirmDelete(false);
+        toast.error("Не удалось удалить Эпический квест");
+      }
+    });
+  }
+
+  if (deleted) return null;
+
   return (
     <div
-      className="rounded-2xl p-5 transition-all"
+      className="relative rounded-2xl p-5 transition-all"
       style={{
         background: "var(--bg-secondary)",
         border: "1px solid rgba(251,191,36,0.2)",
         boxShadow: "0 0 20px rgba(251,191,36,0.06)",
       }}
     >
+      {/* Delete button in corner */}
+      <button
+        onClick={() => confirmDelete ? setConfirmDelete(false) : setConfirmDelete(true)}
+        className="absolute top-4 right-4 p-1.5 rounded-lg transition-all hover:brightness-125"
+        style={{
+          color: confirmDelete ? "var(--color-danger)" : "var(--text-tertiary)",
+          background: confirmDelete ? "rgba(239,68,68,0.1)" : "transparent",
+        }}
+        title="Удалить квест"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
+
       {/* Header */}
       <div className="flex items-start gap-3 mb-4">
         <div
@@ -87,11 +125,26 @@ export function EpicQuestCard({ quest }: EpicQuestCardProps) {
           <h3 className="text-base font-bold mt-0.5" style={{ color: "var(--text-primary)" }}>
             {quest.title}
           </h3>
+          {/* NCT: Narrative (The 'Why') */}
+          {quest.narrative && (
+            <p className="text-xs mt-1.5 italic" style={{ color: "var(--color-xp)" }}>
+              «{quest.narrative}»
+            </p>
+          )}
           {quest.description && (
             <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>{quest.description}</p>
           )}
         </div>
       </div>
+
+      {/* NCT: Synergy Points */}
+      {quest.synergy_points !== undefined && quest.synergy_points > 0 && (
+        <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold" style={{ background: "rgba(139, 92, 246, 0.1)", color: "var(--color-xp)", border: "1px solid rgba(139, 92, 246, 0.2)" }}>
+          <span>✨ Синергия Системы:</span>
+          <span>+{quest.synergy_points} PTS</span>
+        </div>
+      )}
+
 
       {/* Progress bar */}
       <div className="mb-4">
@@ -230,8 +283,8 @@ export function EpicQuestCard({ quest }: EpicQuestCardProps) {
 
       {/* Subquests */}
       {quest.subquests && quest.subquests.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Этапы:</p>
+        <div className="space-y-2 mb-4">
+          <p className="text-xs font-medium" style={{ color: "var(--text-secondary)" }}>Объективы (Подзадачи):</p>
           {quest.subquests.map((sq) => (
             <div key={sq.id} className="flex items-center gap-2">
               <div
@@ -254,11 +307,56 @@ export function EpicQuestCard({ quest }: EpicQuestCardProps) {
         </div>
       )}
 
+      {/* NCT: Linked Habits (The System) */}
+      {quest.linked_tasks && quest.linked_tasks.length > 0 && (
+        <div className="space-y-2 mb-4 p-3 rounded-xl" style={{ background: "var(--bg-tertiary)", border: "1px dashed var(--border-subtle)" }}>
+          <p className="text-xs font-medium flex items-center gap-1.5" style={{ color: "var(--color-xp)" }}>
+            <span>⚡️ Активные привычки:</span>
+          </p>
+          {quest.linked_tasks.map((lt) => (
+            <div key={lt.id} className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: lt.is_completed ? "var(--color-success)" : "var(--color-xp)" }} />
+              <span
+                className={`text-xs ${lt.is_completed ? "line-through" : ""}`}
+                style={{ color: lt.is_completed ? "var(--text-tertiary)" : "var(--text-secondary)" }}
+              >
+                {lt.title} {lt.type === "daily" ? "(Ежедневная)" : "(Еженедельная)"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Deadline */}
       {quest.deadline && (
         <p className="text-xs mt-3" style={{ color: "var(--text-tertiary)" }}>
           Дедлайн: {new Date(quest.deadline).toLocaleDateString("ru-RU")}
         </p>
+      )}
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <div className="mt-4 rounded-xl p-3" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
+          <p className="text-xs mb-2.5" style={{ color: "var(--text-secondary)" }}>
+            Удалить этот Эпический квест? Привязанные привычки останутся, но Эпик будет удален навсегда.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all hover:brightness-110"
+              style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+            >
+              Отмена
+            </button>
+            <button
+              onClick={handleDelete}
+              className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all hover:brightness-110"
+              style={{ background: "rgba(239,68,68,0.2)", color: "var(--color-danger)", border: "1px solid rgba(239,68,68,0.4)" }}
+            >
+              Удалить Эпик
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -6,7 +6,7 @@ import { checkLevelUp } from "@/lib/game/level-system";
 import { checkRankUp, getRankFromLevel } from "@/lib/game/rank-system";
 import { getLevelFromTotalXP } from "@/lib/game/xp-calculator";
 import { evaluateCondition } from "@/lib/game/achievement-checker";
-import type { CompleteQuestResult, AchievementCondition, Profile } from "@/types/game";
+import type { CompleteQuestResult, AchievementCondition, Profile, Quest } from "@/types/game";
 import { isPremium } from "@/lib/game/subscriptions";
 
 export async function completeQuest(questId: string, partial = false): Promise<CompleteQuestResult> {
@@ -15,12 +15,14 @@ export async function completeQuest(questId: string, partial = false): Promise<C
   if (!user) throw new Error("Not authenticated");
 
   // Fetch quest
-  const { data: quest, error: questErr } = await supabase
+  const { data: rawQuest, error: questErr } = await supabase
     .from("quests")
     .select("*")
     .eq("id", questId)
     .eq("user_id", user.id)
     .single();
+
+  const quest = rawQuest as unknown as Quest;
 
   if (questErr || !quest) throw new Error(`Quest not found (id=${questId}, err=${questErr?.message})`);
   if (quest.is_completed) throw new Error("Quest already completed");
@@ -76,6 +78,26 @@ export async function completeQuest(questId: string, partial = false): Promise<C
     .from("quests")
     .update({ is_completed: true, streak: (quest.streak ?? 0) + 1 })
     .eq("id", questId);
+
+  // NCT System: If this quest is linked to an Epic, increment Epic's progress & synergy
+  if (quest.parent_id) {
+    const { data: rawEpic } = await supabase
+      .from("quests")
+      .select("*")
+      .eq("id", quest.parent_id)
+      .single();
+
+    if (rawEpic) {
+      const parentEpic = rawEpic as unknown as Quest;
+      await supabase
+        .from("quests")
+        .update({
+          current_value: (parentEpic.current_value ?? 0) + 1,
+          synergy_points: (parentEpic.synergy_points ?? 0) + 10 // e.g. 10 pts per habit completed
+        })
+        .eq("id", quest.parent_id);
+    }
+  }
 
   // Log completion
   await supabase.from("quest_logs").insert({
@@ -252,6 +274,8 @@ export async function createQuest(data: {
   trigger_location?: string;
   trigger_anchor?: string;
   min_description?: string;
+  parent_id?: string;
+  narrative?: string;
 }): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -265,9 +289,9 @@ export async function createQuest(data: {
       .eq("id", user.id)
       .single() as { data: Profile | null };
 
-    if (!isPremium(profile)) {
-      throw new Error("Эпические квесты доступны только Охотникам ранга Монарх.");
-    }
+    // if (!isPremium(profile)) {
+    //   throw new Error("Эпические квесты доступны только Охотникам ранга Монарх.");
+    // }
   }
 
   const xpByDifficulty: Record<string, number> = {
@@ -292,6 +316,8 @@ export async function createQuest(data: {
     trigger_location: data.trigger_location || null,
     trigger_anchor: data.trigger_anchor || null,
     min_description: data.min_description || null,
+    parent_id: data.parent_id || null,
+    narrative: data.narrative || null,
   });
 
   if (insertError) throw new Error(`Не удалось создать квест: ${insertError.message}`);

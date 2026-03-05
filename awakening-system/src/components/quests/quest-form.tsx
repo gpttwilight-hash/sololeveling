@@ -6,11 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Loader2, X, Book, Pencil, Repeat, ChevronDown, ChevronUp } from "lucide-react";
 import { createQuest } from "@/app/(app)/actions";
-import {
-  QUEST_TEMPLATES,
-  TEMPLATE_ATTRIBUTE_LABELS,
-  type TemplateAttributeKey
-} from "@/lib/quest-templates";
+import { QUEST_TEMPLATES, TEMPLATE_ATTRIBUTE_LABELS, type TemplateAttributeKey } from "@/lib/quest-templates";
+import type { QuestType, Quest } from "@/types/game";
 
 const schema = z.object({
   title: z.string().min(2, "Минимум 2 символа").max(100),
@@ -25,6 +22,8 @@ const schema = z.object({
   trigger_location: z.string().optional(),
   trigger_anchor: z.string().optional(),
   min_description: z.string().optional(),
+  parent_id: z.string().optional(),
+  narrative: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -56,7 +55,13 @@ const inputStyle = {
   color: "var(--text-primary)",
 };
 
-export function QuestForm() {
+export function QuestForm({
+  initialType = "daily",
+  activeEpics = []
+}: {
+  initialType?: QuestType,
+  activeEpics?: Quest[]
+}) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"manual" | "template">("manual");
   const [showTriggers, setShowTriggers] = useState(false);
@@ -66,7 +71,12 @@ export function QuestForm() {
   const { register, handleSubmit, watch, reset, setValue, formState: { errors, isSubmitting } } =
     useForm<FormData>({
       resolver: zodResolver(schema),
-      defaultValues: { type: "daily", attribute: "str", difficulty: "medium", is_recurring: true },
+      defaultValues: {
+        type: initialType,
+        attribute: "str",
+        difficulty: "medium",
+        is_recurring: initialType !== "epic"
+      },
     });
 
   const questType = watch("type");
@@ -207,6 +217,32 @@ export function QuestForm() {
           >
             {ATTRS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
           </select>
+
+          {/* NCT System: Link to Epic (for Daily/Weekly) */}
+          {(questType === "daily" || questType === "weekly") && activeEpics.length > 0 && (
+            <select
+              {...register("parent_id")}
+              className="w-full px-3 py-2.5 rounded-xl text-sm outline-none transition-all"
+              style={{ background: "var(--bg-tertiary)", border: "1px solid rgba(139, 92, 246, 0.3)", color: "var(--color-xp)" }}
+            >
+              <option value="">Без привязки к Сюжету (Эпику)</option>
+              {activeEpics.map((epic) => (
+                <option key={epic.id} value={epic.id}>
+                  🔗 Эпик: {epic.title}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* NCT System: Narrative (for Epics) */}
+          {questType === "epic" && (
+            <input
+              {...register("narrative")}
+              placeholder="Сюжетная арка: Зачем вам это нужно? (Опционально)"
+              className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+              style={{ background: "var(--bg-tertiary)", border: "1px solid rgba(139, 92, 246, 0.3)", color: "var(--color-xp)" }}
+            />
+          )}
 
           {/* Recurring Option */}
           {(questType === "daily" || questType === "weekly") && (
