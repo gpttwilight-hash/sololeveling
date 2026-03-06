@@ -325,6 +325,61 @@ export async function createQuest(data: {
   revalidatePath("/quests");
 }
 
+export async function updateQuest(questId: string, data: {
+  title: string;
+  type: "daily" | "weekly" | "epic";
+  attribute: "str" | "int" | "cha" | "dis" | "wlt" | "hidden";
+  difficulty: "easy" | "medium" | "hard" | "legendary";
+  description?: string;
+  target_value?: number;
+  deadline?: string;
+  is_recurring?: boolean;
+  trigger_time?: string;
+  trigger_location?: string;
+  trigger_anchor?: string;
+  min_description?: string;
+  parent_id?: string;
+  narrative?: string;
+}): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const xpByDifficulty: Record<string, number> = {
+    easy: 8, medium: 15, hard: 30, legendary: 80,
+  };
+  const xp = xpByDifficulty[data.difficulty] ?? 15;
+  const coins = Math.ceil(xp * 0.5);
+
+  const { error: updateError } = await supabase
+    .from("quests")
+    .update({
+      title: data.title,
+      type: data.type,
+      attribute: data.attribute,
+      difficulty: data.difficulty,
+      xp_reward: xp,
+      coin_reward: coins,
+      description: data.description,
+      target_value: data.target_value,
+      deadline: data.deadline,
+      is_recurring: data.is_recurring ?? false,
+      trigger_time: data.trigger_time || null,
+      trigger_location: data.trigger_location || null,
+      trigger_anchor: data.trigger_anchor || null,
+      min_description: data.min_description || null,
+      parent_id: data.parent_id || null,
+      narrative: data.narrative || null,
+    })
+    .eq("id", questId)
+    .eq("user_id", user.id);
+
+  if (updateError) throw new Error(`Не удалось обновить квест: ${updateError.message}`);
+
+  revalidatePath("/quests");
+  revalidatePath("/dashboard");
+}
+
 export async function deleteQuest(questId: string): Promise<{ xpRemoved: number; coinsRemoved: number }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -392,4 +447,73 @@ export async function deleteQuest(questId: string): Promise<{ xpRemoved: number;
   revalidatePath("/stats");
 
   return { xpRemoved, coinsRemoved };
+}
+
+export async function updateProfile(data: { hunter_name: string; avatar_id: string }): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  await supabase
+    .from("profiles")
+    .update({ hunter_name: data.hunter_name, avatar_id: data.avatar_id })
+    .eq("id", user.id);
+
+  revalidatePath("/settings");
+  revalidatePath("/dashboard");
+  revalidatePath("/stats");
+}
+
+export async function createReward(data: {
+  title: string;
+  emoji: string;
+  cost: number;
+  cooldown_hours?: number;
+}): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  // Get max sort_order
+  const { data: existing } = await supabase
+    .from("rewards")
+    .select("sort_order")
+    .eq("user_id", user.id)
+    .order("sort_order", { ascending: false })
+    .limit(1);
+
+  const nextOrder = ((existing?.[0]?.sort_order as number) ?? 0) + 1;
+
+  await supabase.from("rewards").insert({
+    user_id: user.id,
+    title: data.title,
+    description: null,
+    emoji: data.emoji,
+    cost: data.cost,
+    cooldown_hours: data.cooldown_hours ?? null,
+    last_redeemed_at: null,
+    sort_order: nextOrder,
+    is_active: true,
+  });
+
+  revalidatePath("/shop");
+}
+
+export async function reorderQuests(questIds: string[]): Promise<void> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  // Perform updates in parallel
+  const updates = questIds.map((id, index) =>
+    supabase
+      .from("quests")
+      .update({ sort_order: index })
+      .eq("id", id)
+      .eq("user_id", user.id)
+  );
+
+  await Promise.all(updates);
+  revalidatePath("/quests");
+  revalidatePath("/dashboard");
 }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RewardCard } from "@/components/shop/reward-card";
+import { RewardForm } from "@/components/shop/reward-form";
 import type { Reward } from "@/types/game";
 
 export default async function ShopPage() {
@@ -53,14 +54,18 @@ export default async function ShopPage() {
           >
             <p className="text-3xl mb-3">🛒</p>
             <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Нет доступных наград
+              Пока нет наград
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
-              Награды появятся после завершения онбординга
+              Создайте свою первую награду ниже!
             </p>
           </div>
         )}
+
+        {/* Create reward form */}
+        <RewardForm />
       </div>
     </div>
   );
 }
+

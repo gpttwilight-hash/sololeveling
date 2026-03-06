@@ -4,6 +4,9 @@ import { ProfileCard } from "@/components/dashboard/profile-card";
 import { DailyQuests } from "@/components/dashboard/daily-quests";
 import { MiniRadar } from "@/components/dashboard/mini-radar";
 import { StreakBadge } from "@/components/dashboard/streak-badge";
+import { DaySummary } from "@/components/dashboard/day-summary";
+import { EpicPreview } from "@/components/dashboard/epic-preview";
+import { SystemMessage } from "@/components/dashboard/system-message";
 import type { Profile, Quest } from "@/types/game";
 
 export default async function DashboardPage() {
@@ -20,15 +23,29 @@ export default async function DashboardPage() {
   if (!profileData) redirect("/onboarding");
   const profile = profileData as unknown as Profile;
 
-  const { data: questsData } = await supabase
+  // Fetch ALL active quests (daily, weekly, epic)
+  const { data: allQuestsData } = await supabase
     .from("quests")
     .select("*")
     .eq("user_id", user.id)
-    .eq("type", "daily")
     .eq("is_active", true)
     .order("sort_order");
 
-  const quests = (questsData ?? []) as unknown as Quest[];
+  const allQuests = (allQuestsData ?? []) as unknown as Quest[];
+  const dailyQuests = allQuests.filter((q) => q.type === "daily");
+  const weeklyQuests = allQuests.filter((q) => q.type === "weekly");
+  const epicQuests = allQuests.filter((q) => q.type === "epic" && !q.is_completed);
+
+  // Today's XP from daily_progress
+  const today = new Date().toISOString().split("T")[0];
+  const { data: todayProgress } = await supabase
+    .from("daily_progress")
+    .select("xp_earned")
+    .eq("user_id", user.id)
+    .eq("date", today)
+    .single();
+
+  const totalXpToday = todayProgress?.xp_earned ?? 0;
 
   // Consistency % over last 7 days
   const sevenDaysAgo = new Date();
@@ -70,6 +87,13 @@ export default async function DashboardPage() {
     <div className="space-y-5">
       <ProfileCard profile={profile} />
 
+      {/* System Message */}
+      <SystemMessage
+        streak={profile.current_streak}
+        level={profile.level}
+        questsCompleted={profile.total_quests_completed}
+      />
+
       {profile.active_debuffs && profile.active_debuffs.length > 0 && (
         <div
           className="glass-card px-5 py-4"
@@ -95,6 +119,14 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* Day Summary */}
+      <DaySummary
+        dailyQuests={dailyQuests}
+        weeklyQuests={weeklyQuests}
+        totalXpToday={totalXpToday}
+        streak={profile.current_streak}
+      />
+
       <div className="glass-card px-5 py-4">
         <StreakBadge
           streak={profile.current_streak}
@@ -104,8 +136,11 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {/* Epic Preview */}
+      <EpicPreview epics={epicQuests} />
+
       <div className="glass-card p-5">
-        <DailyQuests quests={quests} date={dateStr} />
+        <DailyQuests quests={dailyQuests} date={dateStr} />
       </div>
 
       <div className="glass-card p-5">

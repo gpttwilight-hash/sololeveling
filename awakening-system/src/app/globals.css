@@ -161,6 +161,32 @@
 }
 
 /* ============================================================
+   LIGHT THEME
+   ============================================================ */
+
+[data-theme="light"] {
+  --bg-primary:       #F8F9FB;
+  --bg-secondary:     #FFFFFF;
+  --bg-tertiary:      #F0F1F4;
+  --bg-glass:         rgba(0, 0, 0, 0.02);
+
+  --text-primary:     #1A1A2E;
+  --text-secondary:   #6B6B80;
+  --text-tertiary:    #9B9BAF;
+
+  --border-subtle:    rgba(0, 0, 0, 0.06);
+  --border-default:   rgba(0, 0, 0, 0.10);
+  --border-active:    rgba(0, 0, 0, 0.20);
+
+  --shadow-card:      0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-elevated:  0 10px 40px rgba(0, 0, 0, 0.08);
+  --shadow-glow:      0 0 20px rgba(99, 102, 241, 0.08);
+
+  color-scheme: light;
+}
+
+
+/* ============================================================
    BASE STYLES
    ============================================================ */
 

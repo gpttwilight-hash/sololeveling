@@ -4,8 +4,8 @@ import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Loader2, X, Book, Pencil, Repeat, ChevronDown, ChevronUp } from "lucide-react";
-import { createQuest } from "@/app/(app)/actions";
+import { Plus, Loader2, X, Book, Pencil, Repeat, ChevronDown, ChevronUp, Save } from "lucide-react";
+import { createQuest, updateQuest } from "@/app/(app)/actions";
 import { QUEST_TEMPLATES, TEMPLATE_ATTRIBUTE_LABELS, type TemplateAttributeKey } from "@/lib/quest-templates";
 import type { QuestType, Quest } from "@/types/game";
 
@@ -57,21 +57,43 @@ const inputStyle = {
 
 export function QuestForm({
   initialType = "daily",
-  activeEpics = []
+  activeEpics = [],
+  initialQuest = null,
+  onCancel = null,
 }: {
   initialType?: QuestType,
-  activeEpics?: Quest[]
+  activeEpics?: Quest[],
+  initialQuest?: Quest | null,
+  onCancel?: (() => void) | null,
 }) {
-  const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"manual" | "template">("manual");
-  const [showTriggers, setShowTriggers] = useState(false);
+  const isEditing = !!initialQuest;
+  const [open, setOpen] = useState(isEditing);
+  const [mode, setMode] = useState<"manual" | "template">(isEditing ? "manual" : "manual");
+  const [showTriggers, setShowTriggers] = useState(
+    !!(initialQuest?.trigger_time || initialQuest?.trigger_location || initialQuest?.trigger_anchor)
+  );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const { register, handleSubmit, watch, reset, setValue, formState: { errors, isSubmitting } } =
     useForm<FormData>({
       resolver: zodResolver(schema),
-      defaultValues: {
+      defaultValues: initialQuest ? {
+        title: initialQuest.title,
+        type: initialQuest.type as any,
+        attribute: initialQuest.attribute as any,
+        difficulty: initialQuest.difficulty as any,
+        description: initialQuest.description || "",
+        target_value: initialQuest.target_value ?? undefined,
+        deadline: initialQuest.deadline ? new Date(initialQuest.deadline).toISOString().split('T')[0] : undefined,
+        is_recurring: initialQuest.is_recurring ?? (initialQuest.type !== "epic"),
+        trigger_time: initialQuest.trigger_time || "",
+        trigger_location: initialQuest.trigger_location || "",
+        trigger_anchor: initialQuest.trigger_anchor || "",
+        min_description: initialQuest.min_description || "",
+        parent_id: initialQuest.parent_id || "",
+        narrative: initialQuest.narrative || "",
+      } : {
         type: initialType,
         attribute: "str",
         difficulty: "medium",
@@ -85,11 +107,16 @@ export function QuestForm({
     setSubmitError(null);
     startTransition(async () => {
       try {
-        await createQuest(data);
-        reset();
-        setOpen(false);
+        if (isEditing && initialQuest) {
+          await updateQuest(initialQuest.id, data);
+          if (onCancel) onCancel();
+        } else {
+          await createQuest(data);
+          reset();
+          setOpen(false);
+        }
       } catch (e) {
-        setSubmitError(e instanceof Error ? e.message : "Не удалось создать квест");
+        setSubmitError(e instanceof Error ? e.message : "Не удалось сохранить квест");
       }
     });
   }
@@ -101,7 +128,7 @@ export function QuestForm({
     setMode("manual");
   }
 
-  if (!open) {
+  if (!open && !isEditing) {
     return (
       <button
         onClick={() => setOpen(true)}
@@ -120,34 +147,43 @@ export function QuestForm({
   return (
     <div
       className="rounded-2xl p-5"
-      style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-default)" }}
+      style={{
+        background: "var(--bg-secondary)",
+        border: isEditing ? "1px solid var(--color-xp)40" : "1px solid var(--border-default)",
+        boxShadow: isEditing ? "0 0 20px var(--color-xp)10" : "none"
+      }}
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          Новый квест
+          {isEditing ? `Редактирование: ${initialQuest.title}` : "Новый квест"}
         </h3>
-        <button onClick={() => { setOpen(false); reset(); }}>
+        <button onClick={() => {
+          if (isEditing && onCancel) onCancel();
+          else { setOpen(false); reset(); }
+        }}>
           <X className="w-4 h-4" style={{ color: "var(--text-tertiary)" }} />
         </button>
       </div>
 
-      {/* Mode Tabs */}
-      <div className="flex gap-1 p-1 rounded-xl mb-4 bg-[var(--bg-tertiary)]">
-        <button
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all ${mode === "template" ? "bg-[var(--bg-secondary)] text-[var(--text-primary)]" : "text-[var(--text-tertiary)]"
-            }`}
-          onClick={() => setMode("template")}
-        >
-          <Book className="w-3.5 h-3.5" /> Из шаблонов
-        </button>
-        <button
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all ${mode === "manual" ? "bg-[var(--bg-secondary)] text-[var(--text-primary)]" : "text-[var(--text-tertiary)]"
-            }`}
-          onClick={() => setMode("manual")}
-        >
-          <Pencil className="w-3.5 h-3.5" /> Вручную
-        </button>
-      </div>
+      {/* Mode Tabs - only for create mode */}
+      {!isEditing && (
+        <div className="flex gap-1 p-1 rounded-xl mb-4 bg-[var(--bg-tertiary)]">
+          <button
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all ${mode === "template" ? "bg-[var(--bg-secondary)] text-[var(--text-primary)]" : "text-[var(--text-tertiary)]"
+              }`}
+            onClick={() => setMode("template")}
+          >
+            <Book className="w-3.5 h-3.5" /> Из шаблонов
+          </button>
+          <button
+            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all ${mode === "manual" ? "bg-[var(--bg-secondary)] text-[var(--text-primary)]" : "text-[var(--text-tertiary)]"
+              }`}
+            onClick={() => setMode("manual")}
+          >
+            <Pencil className="w-3.5 h-3.5" /> Вручную
+          </button>
+        </div>
+      )}
 
       {mode === "template" ? (
         <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
@@ -347,15 +383,31 @@ export function QuestForm({
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white"
-            style={{ background: "linear-gradient(135deg, var(--color-xp), #4F46E5)" }}
-          >
-            {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            Создать квест
-          </button>
+          <div className="flex gap-2">
+            {isEditing && (
+              <button
+                type="button"
+                onClick={onCancel || (() => { })}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: "var(--bg-tertiary)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)" }}
+              >
+                Отмена
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-[2] flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white"
+              style={{ background: "linear-gradient(135deg, var(--color-xp), #4F46E5)" }}
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                isEditing ? <Save className="w-4 h-4" /> : null
+              )}
+              {isEditing ? "Сохранить изменения" : "Создать квест"}
+            </button>
+          </div>
         </form>
       )}
     </div>

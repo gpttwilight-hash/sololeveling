@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { QuestCard } from "@/components/quests/quest-card";
 import { EpicQuestCard } from "@/components/quests/epic-quest-card";
 import { QuestForm } from "@/components/quests/quest-form";
+import { SortableQuestList } from "@/components/quests/sortable-quest-list";
 import type { Quest } from "@/types/game";
 
 interface Props {
@@ -71,11 +71,15 @@ export default async function QuestsPage({ searchParams }: Props) {
       </div>
 
       {/* Quest list */}
-      <div className="space-y-3 mb-4">
-        {filtered.map((quest, i) =>
-          quest.type === "epic"
-            ? <EpicQuestCard key={quest.id} quest={quest} index={i} />
-            : <QuestCard key={quest.id} quest={quest} index={i} />
+      <div className="mb-4">
+        {tab === "epic" ? (
+          <div className="space-y-3">
+            {filtered.map((quest, i) => (
+              <EpicQuestCard key={quest.id} quest={quest} index={i} />
+            ))}
+          </div>
+        ) : (
+          <SortableQuestList key={tab} initialQuests={filtered} />
         )}
 
         {filtered.length === 0 && (
@@ -95,7 +99,7 @@ export default async function QuestsPage({ searchParams }: Props) {
       </div>
 
       {/* Add quest form */}
-      <QuestForm key={tab} initialType={tab as any} activeEpics={activeEpics} />
+      <QuestForm key={tab} initialType={tab as "daily" | "weekly" | "epic"} activeEpics={activeEpics} />
     </div>
   );
 }
