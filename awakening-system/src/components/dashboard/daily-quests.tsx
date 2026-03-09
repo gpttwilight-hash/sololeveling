@@ -143,7 +143,9 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
                   }}
                 >
                   {/* Main row */}
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
                     disabled={isDone || pending}
                     onClick={() => handleComplete(quest)}
                     className="w-full flex items-center gap-3 text-left"
@@ -176,7 +178,7 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
                         +{quest.xp_reward}
                       </span>
                     </div>
-                  </button>
+                  </motion.button>
 
                   {/* Min description hint + partial button */}
                   {!isDone && quest.min_description && (
@@ -184,10 +186,12 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
                       <span className="text-[10px]" style={{ color: "var(--color-success)", opacity: 0.8 }}>
                         Минимум: {quest.min_description}
                       </span>
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.95 }}
                         disabled={pending}
                         onClick={() => handleComplete(quest, true)}
-                        className="text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all hover:brightness-110 active:scale-[0.98]"
+                        className="text-[10px] font-semibold px-2.5 py-1 rounded-lg transition-all hover:brightness-110"
                         style={{
                           background: "rgba(16,185,129,0.12)",
                           border: "1px solid rgba(16,185,129,0.3)",
@@ -195,7 +199,7 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
                         }}
                       >
                         Зачесть (+{Math.round(quest.xp_reward * 0.5)} XP)
-                      </button>
+                      </motion.button>
                     </div>
                   )}
                 </div>
@@ -205,17 +209,9 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
         </AnimatePresence>
 
         {quests.length === 0 && (
-          <div
-            className="text-center py-8 rounded-xl"
-            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)" }}
-          >
-            <p className="text-2xl mb-2">📋</p>
-            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-              Нет активных квестов
-            </p>
-            <p className="text-xs mt-1" style={{ color: "var(--text-tertiary)" }}>
-              Добавь квесты в разделе «Квесты»
-            </p>
+          <div className="text-center py-12 text-gray-500 font-mono">
+            <p className="text-lg mb-2">Система ожидает твоих действий, Охотник.</p>
+            <p className="text-sm">Создай свой первый квест, чтобы начать путь.</p>
           </div>
         )}
       </div>

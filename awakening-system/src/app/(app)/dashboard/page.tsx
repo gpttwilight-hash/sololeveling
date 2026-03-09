@@ -9,6 +9,7 @@ import { EpicPreview } from "@/components/dashboard/epic-preview";
 import { SystemMessage } from "@/components/dashboard/system-message";
 import type { Profile, Quest } from "@/types/game";
 import { HunterStatusBar } from "@/components/dashboard/hunter-status-bar";
+import { HeroQuest } from "@/components/dashboard/hero-quest";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -36,6 +37,7 @@ export default async function DashboardPage() {
   const dailyQuests = allQuests.filter((q) => q.type === "daily");
   const weeklyQuests = allQuests.filter((q) => q.type === "weekly");
   const epicQuests = allQuests.filter((q) => q.type === "epic" && !q.is_completed);
+  const heroQuest = dailyQuests.find((q) => !q.is_completed) ?? dailyQuests[0];
 
   // Today's XP from daily_progress
   const today = new Date().toISOString().split("T")[0];
@@ -87,6 +89,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-5">
       <HunterStatusBar profile={profile} streak={profile.current_streak} />
+      {heroQuest && <HeroQuest quest={heroQuest} />}
       <ProfileCard profile={profile} />
 
       {/* System Message */}
