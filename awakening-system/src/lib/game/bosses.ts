@@ -35,6 +35,7 @@ export function getMondayOfCurrentWeek(): string {
   const today = new Date();
   const day = today.getDay();
   const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(today.setDate(diff));
+  const monday = new Date(today);
+  monday.setDate(diff);
   return monday.toISOString().split("T")[0];
 }
