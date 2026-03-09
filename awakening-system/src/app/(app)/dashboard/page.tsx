@@ -8,6 +8,7 @@ import { DaySummary } from "@/components/dashboard/day-summary";
 import { EpicPreview } from "@/components/dashboard/epic-preview";
 import { SystemMessage } from "@/components/dashboard/system-message";
 import type { Profile, Quest } from "@/types/game";
+import { HunterStatusBar } from "@/components/dashboard/hunter-status-bar";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -85,6 +86,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
+      <HunterStatusBar profile={profile} streak={profile.current_streak} />
       <ProfileCard profile={profile} />
 
       {/* System Message */}
