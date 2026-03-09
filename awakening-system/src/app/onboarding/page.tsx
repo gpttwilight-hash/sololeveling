@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, ChevronRight, ChevronLeft, Check } from "lucide-react";
 import { completeOnboarding } from "./actions";
@@ -34,21 +34,6 @@ const pageVariants = {
   exit: { opacity: 0, x: -40 },
 };
 
-function useTypewriter(text: string, speed = 40) {
-  const [displayed, setDisplayed] = useState("");
-  const [done, setDone] = useState(false);
-  useEffect(() => {
-    setDisplayed("");
-    setDone(false);
-    let i = 0;
-    const id = setInterval(() => {
-      setDisplayed(text.slice(0, ++i));
-      if (i >= text.length) { clearInterval(id); setDone(true); }
-    }, speed);
-    return () => clearInterval(id);
-  }, [text, speed]);
-  return { displayed, done };
-}
 
 function WelcomeText() {
   return (
@@ -92,8 +77,8 @@ export default function OnboardingPage() {
   const [showRankReveal, setShowRankReveal] = useState(false);
 
   // Build available quests from selected focus areas
-  const availableQuests = selectedFocus.flatMap((focus) =>
-    STARTER_QUESTS[focus].map((q, i) => ({ ...q, id: `${focus}_${i}`, attribute: focus }))
+  const availableQuests: Array<{ id: string; title: string; attribute: FocusKey; xp_reward: number; coin_reward: number }> = selectedFocus.flatMap((focus) =>
+    STARTER_QUESTS[focus].map((q, i) => ({ ...q, id: `${focus}_${i}`, attribute: focus as FocusKey }))
   );
 
   function toggleFocus(key: FocusKey) {
@@ -411,7 +396,7 @@ export default function OnboardingPage() {
               <div className="space-y-2 mb-8 max-h-72 overflow-y-auto pr-1">
                 {availableQuests.map((q) => {
                   const active = selectedQuests.includes(q.id);
-                  const attr = q.attribute as FocusKey;
+                  const attr = q.attribute;
                   const disabled = !active && selectedQuests.length >= 5;
                   return (
                     <button
