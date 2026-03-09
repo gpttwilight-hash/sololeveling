@@ -156,6 +156,13 @@ type PushSubscriptionRow = {
   updated_at: string;
 };
 
+type WaitlistRow = {
+  id: string;
+  email: string;
+  source: string;
+  created_at: string;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -266,6 +273,12 @@ export interface Database {
         Row: BossRow;
         Insert: Omit<BossRow, "id" | "created_at"> & { id?: string; created_at?: string };
         Update: Partial<BossRow>;
+        Relationships: [];
+      };
+      waitlist: {
+        Row: WaitlistRow;
+        Insert: { email: string; source?: string };
+        Update: Partial<WaitlistRow>;
         Relationships: [];
       };
     };
