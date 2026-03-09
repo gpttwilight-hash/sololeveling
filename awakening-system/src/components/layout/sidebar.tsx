@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Home, Sword, BarChart2, Trophy, ShoppingBag, Settings,
+  Home, Sword, BarChart2, Trophy, ShoppingBag, Settings, Sparkles,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard",    label: "Dashboard",    icon: Home },
   { href: "/quests",       label: "Квесты",       icon: Sword },
+  { href: "/goals",        label: "AI Советник",  icon: Sparkles },
   { href: "/stats",        label: "Статистика",   icon: BarChart2 },
   { href: "/achievements", label: "Достижения",   icon: Trophy },
   { href: "/shop",         label: "Магазин",      icon: ShoppingBag },
