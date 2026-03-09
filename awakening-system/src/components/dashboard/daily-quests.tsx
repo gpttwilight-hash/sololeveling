@@ -7,6 +7,7 @@ import { completeQuest } from "@/app/(app)/actions";
 import { getLevelNarrative, getRankNarrative } from "@/lib/game/level-narratives";
 import { toast } from "sonner";
 import type { Quest } from "@/types/game";
+import { LevelUpOverlay } from "@/components/shared/level-up-overlay";
 
 const ATTR_LABELS: Record<string, string> = {
   str: "STR", int: "INT", cha: "CHA", dis: "DIS", wlt: "WLT", hidden: "???",
@@ -37,6 +38,7 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
   const [popups, setPopups] = useState<XPPopup[]>([]);
   const [pending, startTransition] = useTransition();
   const popupCounter = useRef(0);
+  const [levelUpData, setLevelUpData] = useState<{ level: number; rank?: string } | null>(null);
 
   const completed = optimisticCompleted.size;
   const total = quests.length;
@@ -57,6 +59,7 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
         const label = partial ? "Минимум засчитан" : "Квест выполнен!";
         toast.success(`${label} +${result.xpEarned} XP`);
         if (result.leveledUp && result.newLevel) {
+          setLevelUpData({ level: result.newLevel, rank: result.rankedUp ? result.newRank : undefined });
           toast.success(`Уровень ${result.newLevel}! ${getLevelNarrative(result.newLevel)}`, { duration: 4000 });
         }
         if (result.rankedUp && result.newRank) {
@@ -215,6 +218,13 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
           </div>
         )}
       </div>
+
+      <LevelUpOverlay
+        show={levelUpData !== null}
+        newLevel={levelUpData?.level ?? 0}
+        newRank={levelUpData?.rank}
+        onDone={() => setLevelUpData(null)}
+      />
     </div>
   );
 }
