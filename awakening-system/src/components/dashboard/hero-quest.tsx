@@ -2,6 +2,7 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { completeQuest } from "@/app/(app)/actions";
+import { toast } from "sonner";
 import type { Quest } from "@/types/game";
 
 const ATTR_COLORS: Record<string, string> = {
@@ -27,6 +28,9 @@ export function HeroQuest({ quest }: Props) {
     try {
       await completeQuest(quest.id);
       setIsDone(true);
+    } catch (err) {
+      console.error("Failed to complete quest:", err);
+      toast.error("Не удалось завершить квест. Попробуй снова.");
     } finally {
       setIsCompleting(false);
     }
