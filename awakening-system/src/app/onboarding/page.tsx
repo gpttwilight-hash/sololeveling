@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, ChevronRight, ChevronLeft, Check } from "lucide-react";
 import { completeOnboarding } from "./actions";
@@ -34,6 +34,53 @@ const pageVariants = {
   exit: { opacity: 0, x: -40 },
 };
 
+function useTypewriter(text: string, speed = 40) {
+  const [displayed, setDisplayed] = useState("");
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    setDisplayed("");
+    setDone(false);
+    let i = 0;
+    const id = setInterval(() => {
+      setDisplayed(text.slice(0, ++i));
+      if (i >= text.length) { clearInterval(id); setDone(true); }
+    }, speed);
+    return () => clearInterval(id);
+  }, [text, speed]);
+  return { displayed, done };
+}
+
+function WelcomeText() {
+  return (
+    <div className="flex flex-col gap-3 my-8 text-center">
+      <motion.p
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
+        className="text-gray-400"
+      >
+        Система обнаружила нового Охотника.
+      </motion.p>
+      <motion.p
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.4, duration: 0.5 }}
+        className="text-gray-400"
+      >
+        Инициализация протокола пробуждения...
+      </motion.p>
+      <motion.p
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 2.5, duration: 0.5 }}
+        className="text-indigo-400 font-bold"
+      >
+        Статус: ГОТОВ К РЕГИСТРАЦИИ
+      </motion.p>
+    </div>
+  );
+}
+
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [hunterName, setHunterName] = useState("");
@@ -42,6 +89,7 @@ export default function OnboardingPage() {
   const [selectedQuests, setSelectedQuests] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showRankReveal, setShowRankReveal] = useState(false);
 
   // Build available quests from selected focus areas
   const availableQuests = selectedFocus.flatMap((focus) =>
@@ -67,6 +115,8 @@ export default function OnboardingPage() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setSubmitError(null);
+    setShowRankReveal(true);
+    await new Promise((resolve) => setTimeout(resolve, 2500));
     try {
       const formData = new FormData();
       formData.set("hunter_name", hunterName);
@@ -77,6 +127,7 @@ export default function OnboardingPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (!msg.includes("NEXT_REDIRECT")) {
+        setShowRankReveal(false);
         setSubmitError(msg);
         setIsSubmitting(false);
       }
@@ -96,6 +147,38 @@ export default function OnboardingPage() {
         }}
       />
 
+      {/* Rank Reveal Overlay */}
+      <AnimatePresence>
+        {showRankReveal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 gap-6"
+          >
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 200, damping: 15 }}
+              className="w-32 h-32 rounded-full border-4 border-gray-400 flex items-center justify-center text-5xl font-black text-gray-300"
+            >
+              E
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+              className="text-2xl font-bold text-white"
+            >
+              Ранг E присвоен
+            </motion.p>
+            <motion.p
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}
+              className="text-gray-400 font-mono"
+            >
+              Путь начат. Система ожидает действий.
+            </motion.p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Step indicator */}
       <div className="flex gap-2 mb-8 z-10">
         {[0, 1, 2, 3].map((i) => (
@@ -113,7 +196,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-md z-10">
         <AnimatePresence mode="wait">
 
-          {/* ==================== STEP 0: Welcome ==================== */}
+          {/* ==================== STEP 0: Cinematic Welcome ==================== */}
           {step === 0 && (
             <motion.div
               key="step-0"
@@ -122,25 +205,29 @@ export default function OnboardingPage() {
               animate="animate"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="text-center"
+              className="flex flex-col items-center justify-center text-center"
             >
-              <div className="text-7xl mb-6">⚔️</div>
-              <h1 className="text-3xl font-bold mb-3" style={{ color: "var(--text-primary)" }}>
-                Система Пробуждения
-              </h1>
-              <p className="text-lg mb-2" style={{ color: "var(--text-secondary)" }}>
-                Добро пожаловать, Охотник.
-              </p>
-              <p className="text-base mb-10" style={{ color: "var(--text-tertiary)" }}>
-                Твой путь к рангу S начинается здесь.
-              </p>
-              <button
-                onClick={() => setStep(1)}
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-base font-semibold text-white"
-                style={{ background: "linear-gradient(135deg, var(--color-xp), #4F46E5)" }}
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 1.2, ease: "easeOut" }}
+                className="text-7xl mb-2"
               >
-                Продолжить <ChevronRight className="w-5 h-5" />
-              </button>
+                ⚔️
+              </motion.div>
+
+              <WelcomeText />
+
+              <motion.button
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 3.5, duration: 0.5 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setStep(1)}
+                className="mt-4 inline-flex items-center gap-2 px-8 py-4 rounded-xl text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors"
+              >
+                Начать пробуждение →
+              </motion.button>
             </motion.div>
           )}
 
