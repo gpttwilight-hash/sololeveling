@@ -1,5 +1,6 @@
 import withPWA from "next-pwa";
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -12,4 +13,12 @@ const pwaConfig = withPWA({
   skipWaiting: true,
 });
 
-export default pwaConfig(nextConfig);
+const pwaWrappedConfig = pwaConfig(nextConfig);
+
+export default withSentryConfig(pwaWrappedConfig, {
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  widenClientFileUpload: true,
+  disableLogger: true,
+});

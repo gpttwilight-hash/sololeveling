@@ -6,6 +6,7 @@ import { Check } from "lucide-react";
 import { completeQuest } from "@/app/(app)/actions";
 import { getLevelNarrative, getRankNarrative } from "@/lib/game/level-narratives";
 import { toast } from "sonner";
+import { posthog } from "@/lib/posthog";
 import type { Quest } from "@/types/game";
 import { LevelUpOverlay } from "@/components/shared/level-up-overlay";
 
@@ -58,9 +59,18 @@ export function DailyQuests({ quests, date }: DailyQuestsProps) {
         const result = await completeQuest(quest.id, partial);
         const label = partial ? "Минимум засчитан" : "Квест выполнен!";
         toast.success(`${label} +${result.xpEarned} XP`);
+        posthog.capture("quest_completed", {
+          questId: quest.id,
+          attribute: quest.attribute,
+          xpEarned: result.xpEarned,
+        });
         if (result.leveledUp && result.newLevel) {
           setLevelUpData({ level: result.newLevel, rank: result.rankedUp ? result.newRank : undefined });
           toast.success(`Уровень ${result.newLevel}! ${getLevelNarrative(result.newLevel)}`, { duration: 4000 });
+          posthog.capture("level_up", {
+            newLevel: result.newLevel,
+            newRank: result.newRank,
+          });
         }
         if (result.rankedUp && result.newRank) {
           toast.success(getRankNarrative(result.newRank), { duration: 5000 });

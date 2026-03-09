@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { completeQuest } from "@/app/(app)/actions";
 import { toast } from "sonner";
+import { posthog } from "@/lib/posthog";
 import type { Quest } from "@/types/game";
 
 const ATTR_COLORS: Record<string, string> = {
@@ -28,6 +29,12 @@ export function HeroQuest({ quest }: Props) {
     try {
       await completeQuest(quest.id);
       setIsDone(true);
+      posthog.capture("quest_completed", {
+        questId: quest.id,
+        attribute: quest.attribute,
+        xpEarned: quest.xp_reward,
+        source: "hero_quest",
+      });
     } catch (err) {
       console.error("Failed to complete quest:", err);
       toast.error("Не удалось завершить квест. Попробуй снова.");
