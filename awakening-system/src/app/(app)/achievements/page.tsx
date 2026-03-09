@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AchievementCard } from "@/components/achievements/achievement-card";
+import type { Profile } from "@/types/game";
 
 interface Props {
   searchParams: Promise<{ cat?: string }>;
@@ -18,6 +19,13 @@ export default async function AchievementsPage({ searchParams }: Props) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("hunter_name, rank, level")
+    .eq("id", user.id)
+    .single();
+  const profile = profileData as Pick<Profile, "hunter_name" | "rank" | "level"> | null;
 
   const { data: allAchievements } = await supabase.from("achievements").select("*");
   const { data: userAch } = await supabase
@@ -87,6 +95,9 @@ export default async function AchievementsPage({ searchParams }: Props) {
               isUnlocked={!!unlockedAt}
               isHidden={achievement.category === "hidden"}
               unlockedAt={unlockedAt}
+              hunterName={profile?.hunter_name}
+              hunterRank={profile?.rank}
+              hunterLevel={profile?.level}
             />
           );
         })}
