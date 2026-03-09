@@ -6,6 +6,7 @@ import { Trophy, ShoppingBag } from "lucide-react";
 import type { Profile } from "@/types/game";
 import { ProfileEditor } from "@/components/settings/profile-editor";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { PushNotificationToggle } from "@/components/settings/push-notification-toggle";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -90,6 +91,12 @@ export default async function SettingsPage() {
             <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>1.1.0</span>
           </div>
         </div>
+      </section>
+
+      {/* Notifications section */}
+      <section className="glass-card p-5">
+        <p className="text-overline mb-4">Уведомления</p>
+        <PushNotificationToggle />
       </section>
 
       {/* Account section */}

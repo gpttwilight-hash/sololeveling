@@ -136,6 +136,26 @@ type UserTitleRow = {
   earned_at: string;
 };
 
+type BossRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  week_start: string;
+  total_quests: number;
+  completed_quests: number;
+  is_defeated: boolean;
+  bonus_xp: number;
+  badge_name: string | null;
+  created_at: string;
+};
+
+type PushSubscriptionRow = {
+  user_id: string;
+  subscription: Json;
+  updated_at: string;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -234,6 +254,18 @@ export interface Database {
         Row: UserTitleRow;
         Insert: Omit<UserTitleRow, "id" | "earned_at">;
         Update: Partial<UserTitleRow>;
+        Relationships: [];
+      };
+      push_subscriptions: {
+        Row: PushSubscriptionRow;
+        Insert: PushSubscriptionRow;
+        Update: Partial<PushSubscriptionRow>;
+        Relationships: [];
+      };
+      bosses: {
+        Row: BossRow;
+        Insert: Omit<BossRow, "id" | "created_at"> & { id?: string; created_at?: string };
+        Update: Partial<BossRow>;
         Relationships: [];
       };
     };
