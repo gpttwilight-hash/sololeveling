@@ -10,6 +10,9 @@ import { SystemMessage } from "@/components/dashboard/system-message";
 import type { Profile, Quest } from "@/types/game";
 import { HunterStatusBar } from "@/components/dashboard/hunter-status-bar";
 import { HeroQuest } from "@/components/dashboard/hero-quest";
+import { BossBattle } from "@/components/dashboard/boss-battle";
+import { isPremium } from "@/lib/game/subscriptions";
+import { getMondayOfCurrentWeek, getBossForWeek, getWeekNumber } from "@/lib/game/bosses";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -24,6 +27,41 @@ export default async function DashboardPage() {
 
   if (!profileData) redirect("/onboarding");
   const profile = profileData as unknown as Profile;
+
+  // Fetch or auto-spawn weekly boss for premium users
+  let bossData = null;
+  if (isPremium(profile)) {
+    const weekStart = getMondayOfCurrentWeek();
+    const { data: existingBoss } = await supabase
+      .from("bosses")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("week_start", weekStart)
+      .single();
+
+    if (existingBoss) {
+      bossData = existingBoss;
+    } else {
+      const weekNum = getWeekNumber(new Date());
+      const template = getBossForWeek(weekNum);
+      const { data: newBoss } = await supabase
+        .from("bosses")
+        .insert({
+          user_id: user.id,
+          week_start: weekStart,
+          title: template.title,
+          description: template.description,
+          total_quests: template.total_quests,
+          bonus_xp: template.bonus_xp,
+          badge_name: template.badge_name,
+          completed_quests: 0,
+          is_defeated: false,
+        })
+        .select()
+        .single();
+      bossData = newBoss;
+    }
+  }
 
   // Fetch ALL active quests (daily, weekly, epic)
   const { data: allQuestsData } = await supabase
@@ -90,6 +128,7 @@ export default async function DashboardPage() {
     <div className="space-y-5">
       <HunterStatusBar profile={profile} streak={profile.current_streak} />
       {heroQuest && <HeroQuest quest={heroQuest} />}
+      {bossData && <BossBattle boss={bossData} />}
       <ProfileCard profile={profile} />
 
       {/* System Message */}
