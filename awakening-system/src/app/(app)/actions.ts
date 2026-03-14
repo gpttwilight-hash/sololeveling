@@ -517,3 +517,142 @@ export async function reorderQuests(questIds: string[]): Promise<void> {
   revalidatePath("/quests");
   revalidatePath("/dashboard");
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyRecord = Record<string, any>;
+
+export async function completeDispatch(date: string): Promise<{ xpEarned: number; coinsEarned: number }> {
+  const supabase = await createClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data: dispatch } = await db
+    .from("daily_dispatch")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("date", date)
+    .single() as { data: AnyRecord | null };
+
+  if (!dispatch) throw new Error("Dispatch not found");
+  if (dispatch.is_completed) throw new Error("Dispatch already completed");
+  if (new Date() > new Date(dispatch.expires_at as string)) throw new Error("Dispatch expired");
+
+  const xpEarned = dispatch.bonus_quest_xp as number;
+  const coinsEarned = dispatch.bonus_quest_coins as number;
+  const attrColumn = `${dispatch.attribute_focus}_xp` as
+    | "str_xp" | "int_xp" | "cha_xp" | "dis_xp" | "wlt_xp";
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("total_xp, coins, total_quests_completed, str_xp, int_xp, cha_xp, dis_xp, wlt_xp")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile) throw new Error("Profile not found");
+
+  await supabase.from("profiles").update({
+    total_xp: (profile.total_xp as number) + xpEarned,
+    coins: (profile.coins as number) + coinsEarned,
+    total_quests_completed: (profile.total_quests_completed as number) + 1,
+    [attrColumn]: (((profile as AnyRecord)[attrColumn] as number) ?? 0) + xpEarned,
+  }).eq("id", user.id);
+
+  await db
+    .from("daily_dispatch")
+    .update({ is_completed: true })
+    .eq("user_id", user.id)
+    .eq("date", date);
+
+  await supabase.from("quest_logs").insert({
+    user_id: user.id,
+    quest_id: null,
+    quest_title: dispatch.bonus_quest_title as string,
+    quest_type: "daily",
+    attribute: dispatch.attribute_focus as string,
+    xp_earned: xpEarned,
+    coins_earned: coinsEarned,
+  });
+
+  revalidatePath("/dashboard");
+  return { xpEarned, coinsEarned };
+}
+
+export async function startPortal(date: string, templateId: string): Promise<void> {
+  const supabase = await createClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  await db.from("user_portal_progress").upsert({
+    user_id: user.id,
+    date,
+    template_id: templateId,
+    steps_completed: 0,
+    is_finished: false,
+    started_at: new Date().toISOString(),
+  });
+
+  revalidatePath("/dashboard");
+}
+
+export async function completePortalStep(
+  date: string,
+  stepIndex: number
+): Promise<{ isFinished: boolean; xpEarned: number }> {
+  const supabase = await createClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data: progress } = await db
+    .from("user_portal_progress")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("date", date)
+    .single() as { data: AnyRecord | null };
+
+  if (!progress) throw new Error("Portal progress not found");
+  if ((progress.steps_completed as number) !== stepIndex) {
+    throw new Error(`Step ${stepIndex} not yet unlocked`);
+  }
+
+  const { data: template } = await db
+    .from("portal_templates")
+    .select("*")
+    .eq("id", progress.template_id)
+    .single() as { data: AnyRecord | null };
+
+  if (!template) throw new Error("Portal template not found");
+
+  const stepXpField = `step${stepIndex + 1}_xp` as "step1_xp" | "step2_xp" | "step3_xp";
+  const xpEarned = template[stepXpField] as number;
+  const newStepsCompleted = stepIndex + 1;
+  const isFinished = newStepsCompleted === 3;
+
+  await db.from("user_portal_progress").update({
+    steps_completed: newStepsCompleted,
+    is_finished: isFinished,
+    finished_at: isFinished ? new Date().toISOString() : null,
+  }).eq("user_id", user.id).eq("date", date);
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("total_xp, coins")
+    .eq("id", user.id)
+    .single();
+
+  if (profile) {
+    const coins = Math.ceil(xpEarned * 0.5);
+    await supabase.from("profiles").update({
+      total_xp: (profile.total_xp as number) + xpEarned,
+      coins: (profile.coins as number) + coins,
+    }).eq("id", user.id);
+  }
+
+  revalidatePath("/dashboard");
+  return { isFinished, xpEarned };
+}
