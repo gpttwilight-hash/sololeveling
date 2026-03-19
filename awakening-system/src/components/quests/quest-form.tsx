@@ -80,9 +80,9 @@ export function QuestForm({
       resolver: zodResolver(schema),
       defaultValues: initialQuest ? {
         title: initialQuest.title,
-        type: initialQuest.type as any,
-        attribute: initialQuest.attribute as any,
-        difficulty: initialQuest.difficulty as any,
+        type: initialQuest.type as "daily" | "weekly" | "epic",
+        attribute: initialQuest.attribute as "str" | "int" | "cha" | "dis" | "wlt" | "hidden",
+        difficulty: initialQuest.difficulty as "easy" | "medium" | "hard" | "legendary",
         description: initialQuest.description || "",
         target_value: initialQuest.target_value ?? undefined,
         deadline: initialQuest.deadline ? new Date(initialQuest.deadline).toISOString().split('T')[0] : undefined,
@@ -121,9 +121,9 @@ export function QuestForm({
     });
   }
 
-  function selectTemplate(template: any, attr: string) {
+  function selectTemplate(template: { title: string; difficulty: "easy" | "medium" | "hard" | "legendary"; xp_reward: number }, attr: string) {
     setValue("title", template.title);
-    setValue("attribute", attr as any);
+    setValue("attribute", attr as "str" | "int" | "cha" | "dis" | "wlt" | "hidden");
     setValue("difficulty", template.difficulty);
     setMode("manual");
   }

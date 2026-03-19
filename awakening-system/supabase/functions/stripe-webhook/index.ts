@@ -29,8 +29,8 @@ serve(async (req) => {
 
         switch (event.type) {
             case "checkout.session.completed": {
-                const session = event.data.object as any;
-                const userId = session.metadata.user_id;
+                const session = event.data.object as Stripe.Checkout.Session;
+                const userId = session.metadata?.user_id;
                 const customerId = session.customer;
                 const subscriptionId = session.subscription;
 
@@ -50,7 +50,7 @@ serve(async (req) => {
             }
 
             case "customer.subscription.updated": {
-                const subscription = event.data.object as any;
+                const subscription = event.data.object as Stripe.Subscription;
                 const status = subscription.status; // e.g., 'active', 'past_due', 'canceled'
                 const subscriptionId = subscription.id;
 
@@ -64,7 +64,7 @@ serve(async (req) => {
             }
 
             case "customer.subscription.deleted": {
-                const subscription = event.data.object as any;
+                const subscription = event.data.object as Stripe.Subscription;
                 const subscriptionId = subscription.id;
 
                 await supabase
@@ -85,7 +85,8 @@ serve(async (req) => {
             headers: { "Content-Type": "application/json" },
         });
     } catch (err) {
-        console.error(`[Webhook Error] ${err.message}`);
-        return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[Webhook Error] ${message}`);
+        return new Response(`Webhook Error: ${message}`, { status: 400 });
     }
 });

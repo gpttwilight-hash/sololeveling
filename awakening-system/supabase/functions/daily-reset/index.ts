@@ -52,7 +52,7 @@ serve(async (req) => {
                 newStreak = 0;
             }
 
-            const updateData: any = { current_streak: newStreak };
+            const updateData: { current_streak: number; longest_streak?: number } = { current_streak: newStreak };
             if (newStreak > profile.longest_streak) {
                 updateData.longest_streak = newStreak;
             }
@@ -78,7 +78,8 @@ serve(async (req) => {
         });
     } catch (error) {
         console.error("[Daily Reset Error]:", error);
-        return new Response(JSON.stringify({ error: error.message }), {
+        const message = error instanceof Error ? error.message : String(error);
+        return new Response(JSON.stringify({ error: message }), {
             headers: { "Content-Type": "application/json" },
             status: 500,
         });
