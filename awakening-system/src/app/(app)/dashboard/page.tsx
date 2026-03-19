@@ -13,6 +13,12 @@ import { HeroQuest } from "@/components/dashboard/hero-quest";
 import { BossBattle } from "@/components/dashboard/boss-battle";
 import { isPremium } from "@/lib/game/subscriptions";
 import { getMondayOfCurrentWeek, getBossForWeek, getWeekNumber } from "@/lib/game/bosses";
+import { selectDispatch } from "@/lib/game/dispatch-selector";
+import { getPortalForDate } from "@/lib/game/portal-templates";
+import { shouldShowMilestone } from "@/lib/game/milestone-templates";
+import { DispatchCard } from "@/components/dashboard/dispatch-card";
+import { PortalCard } from "@/components/dashboard/portal-card";
+import { MilestoneOverlay } from "@/components/dashboard/milestone-overlay";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -75,7 +81,8 @@ export default async function DashboardPage() {
   const dailyQuests = allQuests.filter((q) => q.type === "daily");
   const weeklyQuests = allQuests.filter((q) => q.type === "weekly");
   const epicQuests = allQuests.filter((q) => q.type === "epic" && !q.is_completed);
-  const heroQuest = dailyQuests.find((q) => !q.is_completed) ?? dailyQuests[0];
+  // Show first incomplete quest as hero quest; if all done, show none
+  const heroQuest = dailyQuests.find((q) => !q.is_completed) ?? null;
 
   // Today's XP from daily_progress
   const today = new Date().toISOString().split("T")[0];
@@ -124,10 +131,104 @@ export default async function DashboardPage() {
     wlt: "var(--color-wealth)",
   };
 
+  // ── Daily Dispatch ──────────────────────────────────────────────────────
+  const todayDate = new Date().toISOString().split("T")[0];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabaseAny = supabase as any;
+
+  let dispatchData: Record<string, unknown> | null = null;
+  const { data: existingDispatch } = await supabaseAny
+    .from("daily_dispatch")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("date", todayDate)
+    .single() as { data: Record<string, unknown> | null };
+
+  if (existingDispatch) {
+    dispatchData = existingDispatch;
+  } else {
+    const dispatchResult = selectDispatch(
+      {
+        rank: profile.rank,
+        current_streak: profile.current_streak,
+        str_xp: profile.str_xp,
+        int_xp: profile.int_xp,
+        cha_xp: profile.cha_xp,
+        dis_xp: profile.dis_xp,
+        wlt_xp: profile.wlt_xp,
+      },
+      new Date()
+    );
+    const midnight = new Date();
+    midnight.setHours(23, 59, 59, 999);
+
+    const { data: newDispatch } = await supabaseAny
+      .from("daily_dispatch")
+      .insert({
+        user_id: user.id,
+        date: todayDate,
+        template_id: dispatchResult.id,
+        narrative_text: dispatchResult.narrativeText,
+        bonus_quest_title: dispatchResult.bonusQuestTitle,
+        bonus_quest_xp: dispatchResult.bonusXP,
+        bonus_quest_coins: dispatchResult.bonusCoins,
+        attribute_focus: dispatchResult.resolvedAttribute,
+        is_completed: false,
+        expires_at: midnight.toISOString(),
+      })
+      .select()
+      .single() as { data: Record<string, unknown> | null };
+
+    dispatchData = newDispatch;
+  }
+
+  // ── Portal of the Day ────────────────────────────────────────────────────
+  const portalTemplate = getPortalForDate(new Date());
+
+  const { data: portalProgress } = await supabaseAny
+    .from("user_portal_progress")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("date", todayDate)
+    .single() as { data: { steps_completed: number; is_finished: boolean; template_id: string } | null };
+
+  // ── Milestone Check ───────────────────────────────────────────────────────
+  const milestone = shouldShowMilestone(
+    profile.current_streak,
+    ((profile as unknown as Record<string, unknown>).last_milestone_shown as number | undefined) ?? 0
+  );
+
+  if (milestone) {
+    await supabaseAny
+      .from("profiles")
+      .update({ last_milestone_shown: milestone.streakDay })
+      .eq("id", user.id);
+  }
+
   return (
     <div className="space-y-5">
       <HunterStatusBar profile={profile} streak={profile.current_streak} />
       {heroQuest && <HeroQuest quest={heroQuest} />}
+
+      {/* Milestone — показывается при достижении */}
+      {milestone && <MilestoneOverlay milestone={milestone} />}
+
+      {/* Daily Dispatch */}
+      {dispatchData && (
+        <DispatchCard
+          dispatch={dispatchData as unknown as Parameters<typeof DispatchCard>[0]["dispatch"]}
+          date={todayDate}
+        />
+      )}
+
+      {/* Portal of the Day */}
+      <PortalCard
+        portal={portalTemplate}
+        progress={portalProgress ?? null}
+        date={todayDate}
+      />
+
       {bossData && <BossBattle boss={bossData} />}
       <ProfileCard profile={profile} />
 
