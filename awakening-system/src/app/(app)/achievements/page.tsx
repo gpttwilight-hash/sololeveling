@@ -20,18 +20,15 @@ export default async function AchievementsPage({ searchParams }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select("hunter_name, rank, level")
-    .eq("id", user.id)
-    .single();
-  const profile = profileData as Pick<Profile, "hunter_name" | "rank" | "level"> | null;
+  const [profileResult, allAchievementsResult, userAchResult] = await Promise.all([
+    supabase.from("profiles").select("hunter_name, rank, level").eq("id", user.id).single(),
+    supabase.from("achievements").select("*").limit(200),
+    supabase.from("user_achievements").select("achievement_id, unlocked_at").eq("user_id", user.id),
+  ]);
 
-  const { data: allAchievements } = await supabase.from("achievements").select("*");
-  const { data: userAch } = await supabase
-    .from("user_achievements")
-    .select("achievement_id, unlocked_at")
-    .eq("user_id", user.id);
+  const profile = profileResult.data as Pick<Profile, "hunter_name" | "rank" | "level"> | null;
+  const allAchievements = allAchievementsResult.data;
+  const userAch = userAchResult.data;
 
   const unlockedMap = new Map(
     (userAch ?? []).map((ua) => [ua.achievement_id, ua.unlocked_at])

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { STARTER_QUESTS, type FocusKey } from "./data";
 
@@ -11,8 +12,14 @@ export async function completeOnboarding(formData: FormData) {
 
   if (!user) redirect("/login");
 
-  const hunterName = formData.get("hunter_name") as string;
-  const avatarId = formData.get("avatar_id") as string;
+  const hunterName = (formData.get("hunter_name") as string)?.trim();
+  if (!hunterName || hunterName.length === 0) throw new Error("Имя охотника не может быть пустым");
+  if (hunterName.length > 30) throw new Error("Имя охотника слишком длинное (макс. 30 символов)");
+
+  const rawAvatarId = (formData.get("avatar_id") as string) || "default";
+  const VALID_AVATAR_IDS = ["default", "warrior", "mage", "rogue", "paladin", "archer"];
+  const avatarId = VALID_AVATAR_IDS.includes(rawAvatarId) ? rawAvatarId : "default";
+
   const focusKeys = formData.getAll("focus") as FocusKey[];
   const selectedQuestIds = formData.getAll("quests") as string[];
 
@@ -89,6 +96,14 @@ export async function completeOnboarding(formData: FormData) {
   // Insert default rewards
   const { error: rewardsError } = await supabase.rpc("insert_default_rewards", { p_user_id: user.id });
   if (rewardsError) console.error("[onboarding] rewards rpc error:", rewardsError);
+
+  const cookieStore = await cookies();
+  cookieStore.set("onboarding_completed", "1", {
+    httpOnly: true,
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
+    path: "/",
+  });
 
   revalidatePath("/", "layout");
   redirect("/dashboard");

@@ -35,19 +35,24 @@ export async function completeQuest(questId: string, partial = false): Promise<C
     .single();
 
   if (profileErr || !profile) throw new Error(`Profile not found (err=${profileErr?.message})`);
-  console.log(`[completeQuest] quest="${quest.title}" type=${quest.type} xp_reward=${quest.xp_reward}`);
 
   // Apply debuff penalty if active
   const debuffs = (profile.active_debuffs as Array<{ type: "laziness" | "burnout"; xp_penalty?: number; triggered_at: string }>) ?? [];
   const laziness = debuffs.find((d) => d.type === "laziness");
-  const xpPenaltyMultiplier = laziness ? 1 - (laziness.xp_penalty ?? 25) / 100 : 1;
+  const rawPenalty = laziness ? Math.min(100, Math.max(0, laziness.xp_penalty ?? 25)) : 0;
+  const xpPenaltyMultiplier = 1 - rawPenalty / 100;
   const partialMultiplier = partial ? 0.5 : 1;
   const xpEarned = Math.round(quest.xp_reward * xpPenaltyMultiplier * partialMultiplier);
   const coinsEarned = Math.round(quest.coin_reward * partialMultiplier);
 
-  // Determine attribute XP column
-  const attrColumn = `${quest.attribute}_xp` as
-    | "str_xp" | "int_xp" | "cha_xp" | "dis_xp" | "wlt_xp" | "hidden_xp";
+  // Determine attribute XP column — validate against known set
+  const VALID_ATTR_COLUMNS = ["str_xp", "int_xp", "cha_xp", "dis_xp", "wlt_xp", "hidden_xp"] as const;
+  type AttrColumn = typeof VALID_ATTR_COLUMNS[number];
+  const candidateCol = `${quest.attribute}_xp`;
+  if (!(VALID_ATTR_COLUMNS as readonly string[]).includes(candidateCol)) {
+    throw new Error(`Invalid attribute: ${quest.attribute}`);
+  }
+  const attrColumn = candidateCol as AttrColumn;
 
   // Check level/rank changes
   const { leveledUp, newLevel } = checkLevelUp(profile.total_xp, xpEarned);
@@ -155,18 +160,19 @@ export async function completeQuest(questId: string, partial = false): Promise<C
   const unlockedIds = new Set(userAchievements?.map((a) => a.achievement_id) ?? []);
   const newlyUnlocked: string[] = [];
 
+  const toUnlock: { user_id: string; achievement_id: string }[] = [];
   for (const achievement of allAchievements ?? []) {
     if (unlockedIds.has(achievement.id)) continue;
     const met = evaluateCondition(achievement.condition as AchievementCondition, {
       profile: updatedProfile,
     });
     if (met) {
-      await supabase.from("user_achievements").insert({
-        user_id: user.id,
-        achievement_id: achievement.id,
-      });
+      toUnlock.push({ user_id: user.id, achievement_id: achievement.id });
       newlyUnlocked.push(achievement.id);
     }
+  }
+  if (toUnlock.length > 0) {
+    await supabase.from("user_achievements").insert(toUnlock);
   }
 
   revalidatePath("/dashboard");
@@ -281,17 +287,20 @@ export async function createQuest(data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  // Subscription Check: Epic quests are for Monarchs only
-  if (data.type === "epic") {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single() as { data: Profile | null };
+  // Input validation
+  const title = data.title?.trim();
+  if (!title || title.length === 0) throw new Error("Название квеста не может быть пустым");
+  if (title.length > 120) throw new Error("Название квеста слишком длинное (макс. 120 символов)");
 
-    // if (!isPremium(profile)) {
-    //   throw new Error("Эпические квесты доступны только Охотникам ранга Монарх.");
-    // }
+  const VALID_TYPES = ["daily", "weekly", "epic"] as const;
+  const VALID_ATTRS = ["str", "int", "cha", "dis", "wlt", "hidden"] as const;
+  const VALID_DIFFS = ["easy", "medium", "hard", "legendary"] as const;
+  if (!(VALID_TYPES as readonly string[]).includes(data.type)) throw new Error("Неверный тип квеста");
+  if (!(VALID_ATTRS as readonly string[]).includes(data.attribute)) throw new Error("Неверный атрибут");
+  if (!(VALID_DIFFS as readonly string[]).includes(data.difficulty)) throw new Error("Неверная сложность");
+
+  if (data.target_value !== undefined && (data.target_value < 1 || data.target_value > 99999)) {
+    throw new Error("Целевое значение должно быть от 1 до 99999");
   }
 
   const xpByDifficulty: Record<string, number> = {
@@ -302,7 +311,7 @@ export async function createQuest(data: {
 
   const { error: insertError } = await supabase.from("quests").insert({
     user_id: user.id,
-    title: data.title,
+    title,
     type: data.type,
     attribute: data.attribute,
     difficulty: data.difficulty,
@@ -415,8 +424,12 @@ export async function deleteQuest(questId: string): Promise<{ xpRemoved: number;
       .single();
 
     if (profile) {
-      const attrColumn = `${quest.attribute}_xp` as
-        | "str_xp" | "int_xp" | "cha_xp" | "dis_xp" | "wlt_xp" | "hidden_xp";
+      const VALID_ATTR_COLS = ["str_xp", "int_xp", "cha_xp", "dis_xp", "wlt_xp", "hidden_xp"] as const;
+      const candidateAttrCol = `${quest.attribute}_xp`;
+      if (!(VALID_ATTR_COLS as readonly string[]).includes(candidateAttrCol)) {
+        throw new Error(`Invalid attribute: ${quest.attribute}`);
+      }
+      const attrColumn = candidateAttrCol as typeof VALID_ATTR_COLS[number];
       const newTotalXP = Math.max(0, profile.total_xp - xpRemoved);
       const newLevel = getLevelFromTotalXP(newTotalXP);
       const newRank = getRankFromLevel(newLevel).id;
@@ -454,9 +467,13 @@ export async function updateProfile(data: { hunter_name: string; avatar_id: stri
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
+  const hunterName = data.hunter_name?.trim();
+  if (!hunterName || hunterName.length === 0) throw new Error("Имя охотника не может быть пустым");
+  if (hunterName.length > 30) throw new Error("Имя охотника слишком длинное (макс. 30 символов)");
+
   await supabase
     .from("profiles")
-    .update({ hunter_name: data.hunter_name, avatar_id: data.avatar_id })
+    .update({ hunter_name: hunterName, avatar_id: data.avatar_id })
     .eq("id", user.id);
 
   revalidatePath("/settings");
@@ -541,8 +558,12 @@ export async function completeDispatch(date: string): Promise<{ xpEarned: number
 
   const xpEarned = dispatch.bonus_quest_xp as number;
   const coinsEarned = dispatch.bonus_quest_coins as number;
-  const attrColumn = `${dispatch.attribute_focus}_xp` as
-    | "str_xp" | "int_xp" | "cha_xp" | "dis_xp" | "wlt_xp";
+  const VALID_DISPATCH_ATTRS = ["str_xp", "int_xp", "cha_xp", "dis_xp", "wlt_xp"] as const;
+  const candidateDispatchCol = `${dispatch.attribute_focus}_xp`;
+  if (!(VALID_DISPATCH_ATTRS as readonly string[]).includes(candidateDispatchCol)) {
+    throw new Error(`Invalid dispatch attribute: ${dispatch.attribute_focus}`);
+  }
+  const attrColumn = candidateDispatchCol as typeof VALID_DISPATCH_ATTRS[number];
 
   const { data: profile } = await supabase
     .from("profiles")

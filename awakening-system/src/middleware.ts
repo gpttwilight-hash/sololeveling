@@ -45,16 +45,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Onboarding: redirect new users who haven't completed onboarding
+  // Onboarding: redirect new users who haven't completed onboarding.
+  // Use a session cookie set after onboarding to avoid a DB query on every request.
   if (user && isProtected) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single();
+    const onboardingDone = request.cookies.get("onboarding_completed")?.value === "1";
+    if (!onboardingDone) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_completed")
+        .eq("id", user.id)
+        .single();
 
-    if (profile && !profile.onboarding_completed) {
-      return NextResponse.redirect(new URL("/onboarding", request.url));
+      if (profile && !profile.onboarding_completed) {
+        return NextResponse.redirect(new URL("/onboarding", request.url));
+      }
+
+      // Set cookie so we skip the DB check on subsequent requests
+      if (profile?.onboarding_completed) {
+        supabaseResponse.cookies.set("onboarding_completed", "1", {
+          httpOnly: true,
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 30, // 30 days
+          path: "/",
+        });
+      }
     }
   }
 

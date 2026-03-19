@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { completeQuest } from "@/app/(app)/actions";
 import { toast } from "sonner";
 import { posthog } from "@/lib/posthog";
@@ -21,6 +21,11 @@ interface Props {
 export function HeroQuest({ quest }: Props) {
   const [isCompleting, setIsCompleting] = useState(false);
   const [isDone, setIsDone] = useState(quest.is_completed);
+
+  // Sync with server state when quest props update after revalidation
+  useEffect(() => {
+    if (quest.is_completed) setIsDone(true);
+  }, [quest.is_completed]);
   const color = ATTR_COLORS[quest.attribute] ?? "#6366F1";
 
   async function handleComplete() {

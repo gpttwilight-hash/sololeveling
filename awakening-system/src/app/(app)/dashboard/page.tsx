@@ -20,6 +20,9 @@ import { DispatchCard } from "@/components/dashboard/dispatch-card";
 import { PortalCard } from "@/components/dashboard/portal-card";
 import { MilestoneOverlay } from "@/components/dashboard/milestone-overlay";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyRecord = Record<string, any>;
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -34,81 +37,128 @@ export default async function DashboardPage() {
   if (!profileData) redirect("/onboarding");
   const profile = profileData as unknown as Profile;
 
-  // Fetch or auto-spawn weekly boss for premium users
-  let bossData = null;
-  if (isPremium(profile)) {
-    const weekStart = getMondayOfCurrentWeek();
-    const { data: existingBoss } = await supabase
-      .from("bosses")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("week_start", weekStart)
-      .single();
+  const today = new Date().toISOString().split("T")[0];
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+  const weekStart = getMondayOfCurrentWeek();
 
-    if (existingBoss) {
-      bossData = existingBoss;
-    } else {
-      const weekNum = getWeekNumber(new Date());
-      const template = getBossForWeek(weekNum);
-      const { data: newBoss } = await supabase
-        .from("bosses")
-        .insert({
-          user_id: user.id,
-          week_start: weekStart,
-          title: template.title,
-          description: template.description,
-          total_quests: template.total_quests,
-          bonus_xp: template.bonus_xp,
-          badge_name: template.badge_name,
-          completed_quests: 0,
-          is_defeated: false,
-        })
-        .select()
-        .single();
-      bossData = newBoss;
-    }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabaseAny = supabase as any;
+
+  // ── Parallel data fetching ────────────────────────────────────────────────
+  const [
+    bossResult,
+    allQuestsResult,
+    todayProgressResult,
+    recentProgressResult,
+    existingDispatchResult,
+    portalProgressResult,
+  ] = await Promise.all([
+    isPremium(profile)
+      ? supabase.from("bosses").select("*").eq("user_id", user.id).eq("week_start", weekStart).single()
+      : Promise.resolve({ data: null, error: null }),
+    supabase.from("quests").select("*").eq("user_id", user.id).eq("is_active", true).order("sort_order"),
+    supabase.from("daily_progress").select("xp_earned").eq("user_id", user.id).eq("date", today).single(),
+    supabase.from("daily_progress").select("completion_rate, is_rest_day").eq("user_id", user.id).gte("date", sevenDaysAgoStr),
+    supabaseAny.from("daily_dispatch").select("*").eq("user_id", user.id).eq("date", today).single() as Promise<{ data: AnyRecord | null }>,
+    supabaseAny.from("user_portal_progress").select("*").eq("user_id", user.id).eq("date", today).single() as Promise<{ data: { steps_completed: number; is_finished: boolean; template_id: string } | null }>,
+  ]);
+
+  // ── Boss: spawn if missing for premium users ──────────────────────────────
+  let bossData = bossResult.data;
+  if (isPremium(profile) && !bossData) {
+    const weekNum = getWeekNumber(new Date());
+    const template = getBossForWeek(weekNum);
+    const { data: newBoss } = await supabase
+      .from("bosses")
+      .insert({
+        user_id: user.id,
+        week_start: weekStart,
+        title: template.title,
+        description: template.description,
+        total_quests: template.total_quests,
+        bonus_xp: template.bonus_xp,
+        badge_name: template.badge_name,
+        completed_quests: 0,
+        is_defeated: false,
+      })
+      .select()
+      .single();
+    bossData = newBoss;
   }
 
-  // Fetch ALL active quests (daily, weekly, epic)
-  const { data: allQuestsData } = await supabase
-    .from("quests")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .order("sort_order");
-
-  const allQuests = (allQuestsData ?? []) as unknown as Quest[];
+  // ── Quests ────────────────────────────────────────────────────────────────
+  const allQuests = (allQuestsResult.data ?? []) as unknown as Quest[];
   const dailyQuests = allQuests.filter((q) => q.type === "daily");
   const weeklyQuests = allQuests.filter((q) => q.type === "weekly");
   const epicQuests = allQuests.filter((q) => q.type === "epic" && !q.is_completed);
-  // Show first incomplete quest as hero quest; if all done, show none
   const heroQuest = dailyQuests.find((q) => !q.is_completed) ?? null;
 
-  // Today's XP from daily_progress
-  const today = new Date().toISOString().split("T")[0];
-  const { data: todayProgress } = await supabase
-    .from("daily_progress")
-    .select("xp_earned")
-    .eq("user_id", user.id)
-    .eq("date", today)
-    .single();
+  // ── Progress stats ────────────────────────────────────────────────────────
+  const totalXpToday = todayProgressResult.data?.xp_earned ?? 0;
 
-  const totalXpToday = todayProgress?.xp_earned ?? 0;
-
-  // Consistency % over last 7 days
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const { data: recentProgress } = await supabase
-    .from("daily_progress")
-    .select("completion_rate, is_rest_day")
-    .eq("user_id", user.id)
-    .gte("date", sevenDaysAgo.toISOString().split("T")[0]);
-
-  const activeDays = (recentProgress ?? []).filter((d) => !d.is_rest_day);
+  const activeDays = (recentProgressResult.data ?? []).filter((d) => !d.is_rest_day);
   const consistencyPct = activeDays.length > 0
     ? Math.round((activeDays.filter((d) => (d.completion_rate ?? 0) >= 0.8).length / activeDays.length) * 100)
     : undefined;
 
+  // ── Daily Dispatch ────────────────────────────────────────────────────────
+  let dispatchData: AnyRecord | null = existingDispatchResult.data;
+  if (!dispatchData) {
+    const dispatchResult = selectDispatch(
+      {
+        rank: profile.rank,
+        current_streak: profile.current_streak,
+        str_xp: profile.str_xp,
+        int_xp: profile.int_xp,
+        cha_xp: profile.cha_xp,
+        dis_xp: profile.dis_xp,
+        wlt_xp: profile.wlt_xp,
+      },
+      new Date()
+    );
+    const midnight = new Date();
+    midnight.setHours(23, 59, 59, 999);
+
+    const { data: newDispatch } = await supabaseAny
+      .from("daily_dispatch")
+      .insert({
+        user_id: user.id,
+        date: today,
+        template_id: dispatchResult.id,
+        narrative_text: dispatchResult.narrativeText,
+        bonus_quest_title: dispatchResult.bonusQuestTitle,
+        bonus_quest_xp: dispatchResult.bonusXP,
+        bonus_quest_coins: dispatchResult.bonusCoins,
+        attribute_focus: dispatchResult.resolvedAttribute,
+        is_completed: false,
+        expires_at: midnight.toISOString(),
+      })
+      .select()
+      .single() as { data: AnyRecord | null };
+
+    dispatchData = newDispatch;
+  }
+
+  // ── Portal of the Day ────────────────────────────────────────────────────
+  const portalTemplate = getPortalForDate(new Date());
+  const portalProgress = portalProgressResult.data;
+
+  // ── Milestone Check ───────────────────────────────────────────────────────
+  const milestone = shouldShowMilestone(
+    profile.current_streak,
+    ((profile as unknown as AnyRecord).last_milestone_shown as number | undefined) ?? 0
+  );
+
+  if (milestone) {
+    await supabaseAny
+      .from("profiles")
+      .update({ last_milestone_shown: milestone.streakDay })
+      .eq("id", user.id);
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
   const dateStr = new Date().toLocaleDateString("ru-RU", {
     weekday: "short",
     day: "numeric",
@@ -131,81 +181,6 @@ export default async function DashboardPage() {
     wlt: "var(--color-wealth)",
   };
 
-  // ── Daily Dispatch ──────────────────────────────────────────────────────
-  const todayDate = new Date().toISOString().split("T")[0];
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabaseAny = supabase as any;
-
-  let dispatchData: Record<string, unknown> | null = null;
-  const { data: existingDispatch } = await supabaseAny
-    .from("daily_dispatch")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("date", todayDate)
-    .single() as { data: Record<string, unknown> | null };
-
-  if (existingDispatch) {
-    dispatchData = existingDispatch;
-  } else {
-    const dispatchResult = selectDispatch(
-      {
-        rank: profile.rank,
-        current_streak: profile.current_streak,
-        str_xp: profile.str_xp,
-        int_xp: profile.int_xp,
-        cha_xp: profile.cha_xp,
-        dis_xp: profile.dis_xp,
-        wlt_xp: profile.wlt_xp,
-      },
-      new Date()
-    );
-    const midnight = new Date();
-    midnight.setHours(23, 59, 59, 999);
-
-    const { data: newDispatch } = await supabaseAny
-      .from("daily_dispatch")
-      .insert({
-        user_id: user.id,
-        date: todayDate,
-        template_id: dispatchResult.id,
-        narrative_text: dispatchResult.narrativeText,
-        bonus_quest_title: dispatchResult.bonusQuestTitle,
-        bonus_quest_xp: dispatchResult.bonusXP,
-        bonus_quest_coins: dispatchResult.bonusCoins,
-        attribute_focus: dispatchResult.resolvedAttribute,
-        is_completed: false,
-        expires_at: midnight.toISOString(),
-      })
-      .select()
-      .single() as { data: Record<string, unknown> | null };
-
-    dispatchData = newDispatch;
-  }
-
-  // ── Portal of the Day ────────────────────────────────────────────────────
-  const portalTemplate = getPortalForDate(new Date());
-
-  const { data: portalProgress } = await supabaseAny
-    .from("user_portal_progress")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("date", todayDate)
-    .single() as { data: { steps_completed: number; is_finished: boolean; template_id: string } | null };
-
-  // ── Milestone Check ───────────────────────────────────────────────────────
-  const milestone = shouldShowMilestone(
-    profile.current_streak,
-    ((profile as unknown as Record<string, unknown>).last_milestone_shown as number | undefined) ?? 0
-  );
-
-  if (milestone) {
-    await supabaseAny
-      .from("profiles")
-      .update({ last_milestone_shown: milestone.streakDay })
-      .eq("id", user.id);
-  }
-
   return (
     <div className="space-y-5">
       <HunterStatusBar profile={profile} streak={profile.current_streak} />
@@ -218,7 +193,7 @@ export default async function DashboardPage() {
       {dispatchData && (
         <DispatchCard
           dispatch={dispatchData as unknown as Parameters<typeof DispatchCard>[0]["dispatch"]}
-          date={todayDate}
+          date={today}
         />
       )}
 
@@ -226,7 +201,7 @@ export default async function DashboardPage() {
       <PortalCard
         portal={portalTemplate}
         progress={portalProgress ?? null}
-        date={todayDate}
+        date={today}
       />
 
       {bossData && <BossBattle boss={bossData} />}
