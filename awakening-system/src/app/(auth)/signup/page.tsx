@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -29,6 +30,7 @@ const inputStyle = {
 
 export default function SignupPage() {
   const [serverError, setServerError] = useState<string | null>(null);
+  const router = useRouter();
 
   const {
     register,
@@ -43,7 +45,11 @@ export default function SignupPage() {
     formData.set("password", data.password);
     const result = await signup(formData);
     if (result?.error) {
-      setServerError(result.error);
+      if (result.error === "EMAIL_ALREADY_EXISTS") {
+        setServerError("EMAIL_ALREADY_EXISTS:" + data.email);
+      } else {
+        setServerError(result.error);
+      }
     }
   }
 
@@ -93,18 +99,41 @@ export default function SignupPage() {
             </div>
           ))}
 
-          {serverError && (
-            <div
-              className="rounded-xl px-4 py-3 text-sm"
-              style={{
-                background: "rgba(239, 68, 68, 0.1)",
-                border: "1px solid rgba(239, 68, 68, 0.2)",
-                color: "var(--color-danger)",
-              }}
-            >
-              {serverError}
-            </div>
-          )}
+          {serverError && (() => {
+            const isEmailExists = serverError.startsWith("EMAIL_ALREADY_EXISTS:");
+            const emailVal = isEmailExists ? serverError.split(":")[1] : "";
+            return (
+              <div
+                className="rounded-xl px-4 py-3 text-sm"
+                style={{
+                  background: "rgba(239, 68, 68, 0.1)",
+                  border: "1px solid rgba(239, 68, 68, 0.2)",
+                  color: "var(--color-danger)",
+                }}
+              >
+                {isEmailExists ? (
+                  <>
+                    Этот email уже зарегистрирован.{" "}
+                    <button
+                      type="button"
+                      className="underline font-medium"
+                      onClick={() => router.push(`/login?email=${encodeURIComponent(emailVal)}`)}
+                    >
+                      Войти
+                    </button>{" "}
+                    или{" "}
+                    <button
+                      type="button"
+                      className="underline font-medium"
+                      onClick={() => router.push(`/forgot-password?email=${encodeURIComponent(emailVal)}`)}
+                    >
+                      восстановить пароль
+                    </button>
+                  </>
+                ) : serverError}
+              </div>
+            );
+          })()}
 
           <button
             type="submit"

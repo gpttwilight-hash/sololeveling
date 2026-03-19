@@ -33,7 +33,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Auth routes: redirect to dashboard if already logged in
-  if (user && (pathname.startsWith("/login") || pathname.startsWith("/signup"))) {
+  if (user && (pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/forgot-password"))) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
