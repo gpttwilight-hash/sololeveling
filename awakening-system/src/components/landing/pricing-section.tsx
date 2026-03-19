@@ -3,8 +3,9 @@
 import { motion } from "framer-motion";
 import { useInView } from "framer-motion";
 import { useRef } from "react";
-import { Check, Zap } from "lucide-react";
-import Link from "next/link";
+import { Check } from "lucide-react";
+
+
 
 const plans = [
   {
@@ -36,7 +37,6 @@ const plans = [
     name: "Монарх",
     price: "4.99",
     period: "в месяц",
-    altPrice: "49.99",
     altLabel: "или $49.99 навсегда",
     desc: "Для тех, кто серьёзно настроен стать S-рангом.",
     color: "#FBBF24",
@@ -70,10 +70,7 @@ export function PricingSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <p
-            className="text-xs font-semibold uppercase tracking-[0.2em] mb-4"
-            style={{ color: "#6366F1" }}
-          >
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] mb-4" style={{ color: "#6366F1" }}>
             Цены
           </p>
           <h2 className="text-3xl lg:text-4xl font-black mb-4" style={{ color: "#F0F0F5" }}>
@@ -106,7 +103,6 @@ export function PricingSection() {
                   style={{ background: "linear-gradient(90deg, transparent, rgba(251,191,36,0.4), transparent)" }}
                 />
               )}
-
               {plan.badge && (
                 <div
                   className="absolute top-5 right-5 text-[10px] font-semibold px-2.5 py-1 rounded-full"
@@ -117,47 +113,39 @@ export function PricingSection() {
               )}
 
               <div className="mb-6">
-                <p className="text-sm font-medium mb-1" style={{ color: plan.color }}>
-                  {plan.name}
-                </p>
+                <p className="text-sm font-medium mb-1" style={{ color: plan.color }}>{plan.name}</p>
                 <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-4xl font-black" style={{ color: "#F0F0F5" }}>
-                    ${plan.price}
-                  </span>
-                  <span className="text-sm" style={{ color: "#55556A" }}>
-                    /{plan.period}
-                  </span>
+                  <span className="text-4xl font-black" style={{ color: "#F0F0F5" }}>${plan.price}</span>
+                  <span className="text-sm" style={{ color: "#55556A" }}>/{plan.period}</span>
                 </div>
                 {plan.altLabel && (
-                  <p className="text-xs mb-2" style={{ color: "#55556A" }}>
-                    {plan.altLabel}
-                  </p>
+                  <p className="text-xs mb-2" style={{ color: "#55556A" }}>{plan.altLabel}</p>
                 )}
-                <p className="text-sm" style={{ color: "#8A8A9A" }}>
-                  {plan.desc}
-                </p>
+                <p className="text-sm" style={{ color: "#8A8A9A" }}>{plan.desc}</p>
               </div>
 
-              <Link
+              <a
                 href={plan.href}
-                className="block text-center py-3 rounded-xl text-sm font-semibold mb-6 transition-all duration-200"
-                style={
-                  plan.glow
+                className="block text-center py-3 rounded-xl text-sm font-semibold mb-6"
+                style={{
+                  ...(plan.glow
                     ? {
                         background: "rgba(251,191,36,0.1)",
                         border: "1px solid rgba(251,191,36,0.2)",
                         color: "#FBBF24",
                         cursor: "default",
+                        pointerEvents: "none" as const,
                       }
                     : {
                         background: "linear-gradient(135deg, #6366F1, #4F46E5)",
                         color: "white",
                         boxShadow: "0 4px 16px rgba(99,102,241,0.3)",
-                      }
-                }
+                      }),
+                  textDecoration: "none",
+                }}
               >
                 {plan.cta}
-              </Link>
+              </a>
 
               <div className="space-y-2.5">
                 {plan.features.map((feature, j) => (
@@ -168,20 +156,13 @@ export function PricingSection() {
                     >
                       <Check className="w-2.5 h-2.5" style={{ color: plan.color }} />
                     </div>
-                    <span className="text-sm" style={{ color: "#8A8A9A" }}>
-                      {feature}
-                    </span>
+                    <span className="text-sm" style={{ color: "#8A8A9A" }}>{feature}</span>
                   </div>
                 ))}
                 {plan.missing?.map((feature, j) => (
                   <div key={j} className="flex items-center gap-2.5 opacity-35">
-                    <div
-                      className="w-4 h-4 rounded-full flex-shrink-0"
-                      style={{ border: "1px solid rgba(255,255,255,0.1)" }}
-                    />
-                    <span className="text-sm line-through" style={{ color: "#55556A" }}>
-                      {feature}
-                    </span>
+                    <div className="w-4 h-4 rounded-full flex-shrink-0" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
+                    <span className="text-sm line-through" style={{ color: "#55556A" }}>{feature}</span>
                   </div>
                 ))}
               </div>
