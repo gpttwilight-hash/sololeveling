@@ -36,11 +36,20 @@ export async function signup(formData: FormData) {
   });
 
   if (error) {
+    // Email confirmation OFF: Supabase returns explicit error
+    if (
+      error.message.toLowerCase().includes("already registered") ||
+      error.message.toLowerCase().includes("already exists") ||
+      error.message.toLowerCase().includes("user already")
+    ) {
+      return { error: "EMAIL_ALREADY_EXISTS" };
+    }
     return { error: error.message };
   }
 
-  // Supabase silently "succeeds" for existing emails but returns empty identities
-  if (data.user?.identities?.length === 0) {
+  // Email confirmation ON: Supabase silently "succeeds" but returns
+  // a fake user with empty identities and no session
+  if (!data.session && (!data.user?.identities || data.user.identities.length === 0)) {
     return { error: "EMAIL_ALREADY_EXISTS" };
   }
 
