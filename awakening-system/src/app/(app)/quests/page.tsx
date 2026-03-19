@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { QuestCard } from "@/components/quests/quest-card";
 import { EpicQuestCard } from "@/components/quests/epic-quest-card";
 import { QuestForm } from "@/components/quests/quest-form";
+import { SortableQuestList } from "@/components/quests/sortable-quest-list";
 import type { Quest } from "@/types/game";
 
 interface Props {
@@ -23,12 +23,25 @@ export default async function QuestsPage({ searchParams }: Props) {
     .order("sort_order");
 
   const allQuests = (data ?? []) as unknown as Quest[];
+
+  // Attach linked tasks to their parent Epics
+  allQuests.forEach(quest => {
+    if (quest.parent_id) {
+      const parent = allQuests.find(q => q.id === quest.parent_id);
+      if (parent) {
+        if (!parent.linked_tasks) parent.linked_tasks = [];
+        parent.linked_tasks.push(quest);
+      }
+    }
+  });
+
   const filtered = allQuests.filter((q) => q.type === tab);
+  const activeEpics = allQuests.filter((q) => q.type === "epic" && q.is_active);
 
   const TABS = [
-    { key: "daily",   label: "Ежедневные" },
-    { key: "weekly",  label: "Еженедельные" },
-    { key: "epic",    label: "Эпические" },
+    { key: "daily", label: "Ежедневные" },
+    { key: "weekly", label: "Еженедельные" },
+    { key: "epic", label: "Эпические" },
   ];
 
   return (
@@ -58,11 +71,15 @@ export default async function QuestsPage({ searchParams }: Props) {
       </div>
 
       {/* Quest list */}
-      <div className="space-y-3 mb-4">
-        {filtered.map((quest, i) =>
-          quest.type === "epic"
-            ? <EpicQuestCard key={quest.id} quest={quest} index={i} />
-            : <QuestCard key={quest.id} quest={quest} index={i} />
+      <div className="mb-4">
+        {tab === "epic" ? (
+          <div className="space-y-3">
+            {filtered.map((quest, i) => (
+              <EpicQuestCard key={quest.id} quest={quest} index={i} />
+            ))}
+          </div>
+        ) : (
+          <SortableQuestList key={tab} initialQuests={filtered} />
         )}
 
         {filtered.length === 0 && (
@@ -82,7 +99,7 @@ export default async function QuestsPage({ searchParams }: Props) {
       </div>
 
       {/* Add quest form */}
-      <QuestForm />
+      <QuestForm key={tab} initialType={tab as "daily" | "weekly" | "epic"} activeEpics={activeEpics} />
     </div>
   );
 }

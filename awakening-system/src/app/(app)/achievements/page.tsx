@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AchievementCard } from "@/components/achievements/achievement-card";
+import type { Profile } from "@/types/game";
 
 interface Props {
   searchParams: Promise<{ cat?: string }>;
@@ -19,11 +20,15 @@ export default async function AchievementsPage({ searchParams }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: allAchievements } = await supabase.from("achievements").select("*");
-  const { data: userAch } = await supabase
-    .from("user_achievements")
-    .select("achievement_id, unlocked_at")
-    .eq("user_id", user.id);
+  const [profileResult, allAchievementsResult, userAchResult] = await Promise.all([
+    supabase.from("profiles").select("hunter_name, rank, level").eq("id", user.id).single(),
+    supabase.from("achievements").select("*").limit(200),
+    supabase.from("user_achievements").select("achievement_id, unlocked_at").eq("user_id", user.id),
+  ]);
+
+  const profile = profileResult.data as Pick<Profile, "hunter_name" | "rank" | "level"> | null;
+  const allAchievements = allAchievementsResult.data;
+  const userAch = userAchResult.data;
 
   const unlockedMap = new Map(
     (userAch ?? []).map((ua) => [ua.achievement_id, ua.unlocked_at])
@@ -87,6 +92,9 @@ export default async function AchievementsPage({ searchParams }: Props) {
               isUnlocked={!!unlockedAt}
               isHidden={achievement.category === "hidden"}
               unlockedAt={unlockedAt}
+              hunterName={profile?.hunter_name}
+              hunterRank={profile?.rank}
+              hunterLevel={profile?.level}
             />
           );
         })}

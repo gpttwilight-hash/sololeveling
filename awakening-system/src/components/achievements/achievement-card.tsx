@@ -1,3 +1,5 @@
+import { ShareAchievementButton } from "./share-achievement-button";
+
 interface AchievementCardProps {
   id: string;
   title: string;
@@ -7,10 +9,14 @@ interface AchievementCardProps {
   isUnlocked: boolean;
   isHidden: boolean;
   unlockedAt?: string;
+  hunterName?: string;
+  hunterRank?: string;
+  hunterLevel?: number;
 }
 
 export function AchievementCard({
   title, description, icon, isUnlocked, isHidden, unlockedAt,
+  hunterName, hunterRank, hunterLevel,
 }: AchievementCardProps) {
   return (
     <div
@@ -42,9 +48,19 @@ export function AchievementCard({
             {isHidden && !isUnlocked ? "Скрытое достижение" : description}
           </p>
           {isUnlocked && unlockedAt && (
-            <p className="text-xs mt-1" style={{ color: "var(--color-xp)" }}>
-              ✓ {new Date(unlockedAt).toLocaleDateString("ru-RU")}
-            </p>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-xs" style={{ color: "var(--color-xp)" }}>
+                ✓ {new Date(unlockedAt).toLocaleDateString("ru-RU")}
+              </p>
+              {hunterName && hunterRank && hunterLevel !== undefined && (
+                <ShareAchievementButton
+                  hunterName={hunterName}
+                  rank={hunterRank}
+                  level={hunterLevel}
+                  achievementTitle={title}
+                />
+              )}
+            </div>
           )}
         </div>
 

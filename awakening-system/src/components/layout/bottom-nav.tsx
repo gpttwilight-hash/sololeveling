@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Sword, BarChart2, MoreHorizontal } from "lucide-react";
+import { Home, Sword, BarChart2, MoreHorizontal, Sparkles } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Главная", icon: Home },
   { href: "/quests",    label: "Квесты",  icon: Sword },
+  { href: "/goals",     label: "AI",      icon: Sparkles },
   { href: "/stats",     label: "Статы",   icon: BarChart2 },
   { href: "/settings",  label: "Ещё",     icon: MoreHorizontal },
 ];

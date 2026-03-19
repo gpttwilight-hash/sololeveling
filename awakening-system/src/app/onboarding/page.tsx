@@ -34,6 +34,38 @@ const pageVariants = {
   exit: { opacity: 0, x: -40 },
 };
 
+
+function WelcomeText() {
+  return (
+    <div className="flex flex-col gap-3 my-8 text-center">
+      <motion.p
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
+        className="text-gray-400"
+      >
+        Система обнаружила нового Охотника.
+      </motion.p>
+      <motion.p
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.4, duration: 0.5 }}
+        className="text-gray-400"
+      >
+        Инициализация протокола пробуждения...
+      </motion.p>
+      <motion.p
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 2.5, duration: 0.5 }}
+        className="text-indigo-400 font-bold"
+      >
+        Статус: ГОТОВ К РЕГИСТРАЦИИ
+      </motion.p>
+    </div>
+  );
+}
+
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const [hunterName, setHunterName] = useState("");
@@ -42,10 +74,11 @@ export default function OnboardingPage() {
   const [selectedQuests, setSelectedQuests] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showRankReveal, setShowRankReveal] = useState(false);
 
   // Build available quests from selected focus areas
-  const availableQuests = selectedFocus.flatMap((focus) =>
-    STARTER_QUESTS[focus].map((q, i) => ({ ...q, id: `${focus}_${i}`, attribute: focus }))
+  const availableQuests: Array<{ id: string; title: string; attribute: FocusKey; xp_reward: number; coin_reward: number }> = selectedFocus.flatMap((focus) =>
+    STARTER_QUESTS[focus].map((q, i) => ({ ...q, id: `${focus}_${i}`, attribute: focus as FocusKey }))
   );
 
   function toggleFocus(key: FocusKey) {
@@ -67,6 +100,8 @@ export default function OnboardingPage() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setSubmitError(null);
+    setShowRankReveal(true);
+    await new Promise((resolve) => setTimeout(resolve, 2500));
     try {
       const formData = new FormData();
       formData.set("hunter_name", hunterName);
@@ -76,8 +111,8 @@ export default function OnboardingPage() {
       await completeOnboarding(formData);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      // NEXT_REDIRECT is a normal redirect — not an error
       if (!msg.includes("NEXT_REDIRECT")) {
+        setShowRankReveal(false);
         setSubmitError(msg);
         setIsSubmitting(false);
       }
@@ -89,7 +124,6 @@ export default function OnboardingPage() {
       className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden"
       style={{ backgroundColor: "var(--bg-primary)" }}
     >
-      {/* Ambient background */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -98,9 +132,41 @@ export default function OnboardingPage() {
         }}
       />
 
+      {/* Rank Reveal Overlay */}
+      <AnimatePresence>
+        {showRankReveal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 gap-6"
+          >
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 200, damping: 15 }}
+              className="w-32 h-32 rounded-full border-4 border-gray-400 flex items-center justify-center text-5xl font-black text-gray-300"
+            >
+              E
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+              className="text-2xl font-bold text-white"
+            >
+              Ранг E присвоен
+            </motion.p>
+            <motion.p
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}
+              className="text-gray-400 font-mono"
+            >
+              Путь начат. Система ожидает действий.
+            </motion.p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Step indicator */}
       <div className="flex gap-2 mb-8 z-10">
-        {[0, 1, 2].map((i) => (
+        {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
             className="h-1 rounded-full transition-all duration-300"
@@ -115,7 +181,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-md z-10">
         <AnimatePresence mode="wait">
 
-          {/* ==================== STEP 0: Welcome ==================== */}
+          {/* ==================== STEP 0: Cinematic Welcome ==================== */}
           {step === 0 && (
             <motion.div
               key="step-0"
@@ -124,66 +190,84 @@ export default function OnboardingPage() {
               animate="animate"
               exit="exit"
               transition={{ duration: 0.3 }}
-              className="text-center"
+              className="flex flex-col items-center justify-center text-center"
             >
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.1, duration: 0.5 }}
-                className="text-7xl mb-6"
+                transition={{ duration: 1.2, ease: "easeOut" }}
+                className="text-7xl mb-2"
               >
                 ⚔️
               </motion.div>
 
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="text-3xl font-bold mb-3"
-                style={{ color: "var(--text-primary)" }}
-              >
-                Система Пробуждения
-              </motion.h1>
-
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-                className="text-lg mb-2"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                Ты получил Систему.
-              </motion.p>
-
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.45 }}
-                className="text-base mb-10"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Готов к пробуждению?
-              </motion.p>
+              <WelcomeText />
 
               <motion.button
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 3.5, duration: 0.5 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setStep(1)}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-base font-semibold text-white"
-                style={{ background: "linear-gradient(135deg, var(--color-xp), #4F46E5)" }}
+                className="mt-4 inline-flex items-center gap-2 px-8 py-4 rounded-xl text-base font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors"
               >
-                Начать <ChevronRight className="w-5 h-5" />
+                Начать пробуждение →
               </motion.button>
             </motion.div>
           )}
 
-          {/* ==================== STEP 1: Character Setup ==================== */}
+          {/* ==================== STEP 1: Explanation ==================== */}
           {step === 1 && (
             <motion.div
               key="step-1"
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-2xl font-bold mb-4" style={{ color: "var(--text-primary)" }}>
+                Как это работает?
+              </h2>
+              <div className="space-y-4 mb-8">
+                {[
+                  { icon: "📈", title: "Прокачка", text: "Выполняй квесты, получай XP и повышай свои атрибуты." },
+                  { icon: "🔥", title: "Стрик", text: "Не пропускай дни, чтобы сохранять серию и получать бонусы." },
+                  { icon: "💰", title: "Магазин", text: "Трать заработанные монеты на реальные награды для себя." },
+                  { icon: "⚔️", title: "Эпики", text: "Ставь глобальные цели и иди к ним через малые шаги." },
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-4 p-3 rounded-xl" style={{ background: "var(--bg-tertiary)" }}>
+                    <span className="text-2xl">{item.icon}</span>
+                    <div>
+                      <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{item.title}</p>
+                      <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>{item.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setStep(0)}
+                  className="flex items-center gap-1 px-4 py-3 rounded-xl text-sm transition-all"
+                  style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
+                >
+                  <ChevronLeft className="w-4 h-4" /> Назад
+                </button>
+                <button
+                  onClick={() => setStep(2)}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all"
+                  style={{ background: "linear-gradient(135deg, var(--color-xp), #4F46E5)" }}
+                >
+                  Понятно <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ==================== STEP 2: Character Setup ==================== */}
+          {step === 2 && (
+            <motion.div
+              key="step-2"
               variants={pageVariants}
               initial="initial"
               animate="animate"
@@ -197,7 +281,6 @@ export default function OnboardingPage() {
                 Как тебя будет звать Система?
               </p>
 
-              {/* Name input */}
               <div className="mb-6">
                 <label className="block text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
                   Имя охотника
@@ -214,18 +297,9 @@ export default function OnboardingPage() {
                     border: "1px solid var(--border-subtle)",
                     color: "var(--text-primary)",
                   }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = "var(--color-xp)";
-                    e.target.style.boxShadow = "var(--shadow-glow)";
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = "var(--border-subtle)";
-                    e.target.style.boxShadow = "none";
-                  }}
                 />
               </div>
 
-              {/* Avatar grid */}
               <div className="mb-6">
                 <label className="block text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
                   Выбери аватар
@@ -239,7 +313,6 @@ export default function OnboardingPage() {
                       style={{
                         background: avatarId === av ? "rgba(99,102,241,0.15)" : "var(--bg-tertiary)",
                         border: `1px solid ${avatarId === av ? "var(--color-xp)" : "var(--border-subtle)"}`,
-                        boxShadow: avatarId === av ? "var(--shadow-glow)" : "none",
                       }}
                     >
                       {av}
@@ -248,7 +321,6 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              {/* Focus */}
               <div className="mb-8">
                 <label className="block text-xs font-medium mb-2" style={{ color: "var(--text-secondary)" }}>
                   Выбери фокус (можно несколько)
@@ -286,18 +358,14 @@ export default function OnboardingPage() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setStep(0)}
+                  onClick={() => setStep(1)}
                   className="flex items-center gap-1 px-4 py-3 rounded-xl text-sm transition-all"
-                  style={{
-                    background: "var(--bg-tertiary)",
-                    border: "1px solid var(--border-subtle)",
-                    color: "var(--text-secondary)",
-                  }}
+                  style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
                 >
                   <ChevronLeft className="w-4 h-4" /> Назад
                 </button>
                 <button
-                  onClick={() => setStep(2)}
+                  onClick={() => setStep(3)}
                   disabled={hunterName.trim().length < 2 || selectedFocus.length === 0}
                   className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40"
                   style={{ background: "linear-gradient(135deg, var(--color-xp), #4F46E5)" }}
@@ -308,10 +376,10 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* ==================== STEP 2: First Quests ==================== */}
-          {step === 2 && (
+          {/* ==================== STEP 3: First Quests ==================== */}
+          {step === 3 && (
             <motion.div
-              key="step-2"
+              key="step-3"
               variants={pageVariants}
               initial="initial"
               animate="animate"
@@ -321,50 +389,14 @@ export default function OnboardingPage() {
               <h2 className="text-2xl font-bold mb-1" style={{ color: "var(--text-primary)" }}>
                 Первые квесты
               </h2>
-              <p className="text-sm mb-1" style={{ color: "var(--text-tertiary)" }}>
+              <p className="text-sm mb-6" style={{ color: "var(--text-tertiary)" }}>
                 Выбери 3–5 квестов для начала
               </p>
-              <p className="text-xs mb-6 italic" style={{ color: "var(--text-tertiary)" }}>
-                «E-ранг охотник не берёт S-ранг данжи»
-              </p>
 
-              {/* Warning */}
-              {selectedQuests.length >= 5 && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="rounded-xl px-4 py-3 mb-4 text-sm"
-                  style={{
-                    background: "rgba(245,158,11,0.1)",
-                    border: "1px solid rgba(245,158,11,0.3)",
-                    color: "var(--color-warning)",
-                  }}
-                >
-                  ⚠️ Начни с малого — 5 квестов максимум
-                </motion.div>
-              )}
-
-              {/* Counter */}
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                  Доступно {availableQuests.length} квестов
-                </span>
-                <span
-                  className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                  style={{
-                    background: selectedQuests.length >= 3 ? "rgba(99,102,241,0.15)" : "var(--bg-tertiary)",
-                    color: selectedQuests.length >= 3 ? "var(--color-xp)" : "var(--text-tertiary)",
-                  }}
-                >
-                  {selectedQuests.length}/5 выбрано
-                </span>
-              </div>
-
-              {/* Quest list */}
               <div className="space-y-2 mb-8 max-h-72 overflow-y-auto pr-1">
                 {availableQuests.map((q) => {
                   const active = selectedQuests.includes(q.id);
-                  const attr = q.attribute as FocusKey;
+                  const attr = q.attribute;
                   const disabled = !active && selectedQuests.length >= 5;
                   return (
                     <button
@@ -397,27 +429,16 @@ export default function OnboardingPage() {
               </div>
 
               {submitError && (
-                <div
-                  className="rounded-xl px-4 py-3 mb-4 text-sm"
-                  style={{
-                    background: "rgba(239,68,68,0.1)",
-                    border: "1px solid rgba(239,68,68,0.3)",
-                    color: "var(--color-danger)",
-                  }}
-                >
+                <div className="rounded-xl px-4 py-3 mb-4 text-sm" style={{ background: "rgba(239,68,68,0.1)", color: "var(--color-danger)" }}>
                   {submitError}
                 </div>
               )}
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setStep(1)}
+                  onClick={() => setStep(2)}
                   className="flex items-center gap-1 px-4 py-3 rounded-xl text-sm transition-all"
-                  style={{
-                    background: "var(--bg-tertiary)",
-                    border: "1px solid var(--border-subtle)",
-                    color: "var(--text-secondary)",
-                  }}
+                  style={{ background: "var(--bg-tertiary)", color: "var(--text-secondary)" }}
                 >
                   <ChevronLeft className="w-4 h-4" /> Назад
                 </button>
