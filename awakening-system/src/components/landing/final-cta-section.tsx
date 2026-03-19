@@ -2,9 +2,10 @@
 
 import { motion } from "framer-motion";
 import { useInView } from "framer-motion";
-import { useRef, useState } from "react";
-import Link from "next/link";
+import { useRef } from "react";
 import { ArrowRight, Sword } from "lucide-react";
+
+
 
 export function FinalCtaSection() {
   const ref = useRef(null);
@@ -12,15 +13,12 @@ export function FinalCtaSection() {
 
   return (
     <section ref={ref} className="py-24 px-6 relative overflow-hidden">
-      {/* Background */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(99,102,241,0.1) 0%, transparent 70%)",
         }}
       />
-
-      {/* Grid */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -39,7 +37,6 @@ export function FinalCtaSection() {
           animate={inView ? { opacity: 1, scale: 1 } : {}}
           transition={{ duration: 0.6 }}
         >
-          {/* Icon */}
           <div className="flex justify-center mb-8">
             <div
               className="w-16 h-16 rounded-2xl flex items-center justify-center"
@@ -74,18 +71,19 @@ export function FinalCtaSection() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
-              href="/signup"
-              className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold text-white transition-all duration-200"
+            <a
+              href={"/signup"}
+              className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold text-white"
               style={{
                 background: "linear-gradient(135deg, #6366F1, #4F46E5)",
                 boxShadow: "0 4px 30px rgba(99,102,241,0.4)",
                 fontSize: "1rem",
+                textDecoration: "none",
               }}
             >
               Получить Систему бесплатно
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
+              <ArrowRight className="w-5 h-5" />
+            </a>
           </div>
 
           <p className="mt-6 text-xs" style={{ color: "#55556A" }}>

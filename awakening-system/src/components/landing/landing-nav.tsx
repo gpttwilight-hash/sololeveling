@@ -1,18 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { Sword } from "lucide-react";
+
+// Ссылки ведут на основное приложение
+
 
 export function LandingNav() {
   const [scrolled, setScrolled] = useState(false);
-  const { scrollY } = useScroll();
 
   useEffect(() => {
-    const unsubscribe = scrollY.on("change", (v) => setScrolled(v > 20));
-    return unsubscribe;
-  }, [scrollY]);
+    const handler = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handler, { passive: true });
+    return () => window.removeEventListener("scroll", handler);
+  }, []);
 
   return (
     <motion.nav
@@ -20,36 +22,66 @@ export function LandingNav() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-[#0A0A0F]/90 backdrop-blur-xl border-b border-white/5"
-          : "bg-transparent"
+        scrolled ? "backdrop-blur-xl border-b" : ""
       }`}
+      style={{
+        background: scrolled ? "rgba(10,10,15,0.92)" : "transparent",
+        borderColor: scrolled ? "rgba(255,255,255,0.05)" : "transparent",
+      }}
     >
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-[#6366F1]/20 border border-[#6366F1]/30 flex items-center justify-center group-hover:bg-[#6366F1]/30 transition-colors">
-            <Sword className="w-4 h-4 text-[#6366F1]" />
+      <div
+        style={{
+          maxWidth: 1152,
+          margin: "0 auto",
+          padding: "0 24px",
+          height: 64,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 10,
+              background: "rgba(99,102,241,0.15)",
+              border: "1px solid rgba(99,102,241,0.3)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Sword style={{ width: 16, height: 16, color: "#6366F1" }} />
           </div>
-          <span className="font-semibold text-[#F0F0F5] text-sm tracking-wide">
+          <span style={{ fontWeight: 600, fontSize: 14, color: "#F0F0F5", letterSpacing: "0.02em" }}>
             Система Пробуждения
           </span>
-        </Link>
+        </div>
 
-        {/* CTA buttons */}
-        <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="text-sm text-[#8A8A9A] hover:text-[#F0F0F5] transition-colors px-4 py-2 hidden sm:block"
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <a
+            href={"/login"}
+            style={{ fontSize: 14, color: "#8A8A9A", padding: "8px 16px", textDecoration: "none" }}
           >
             Войти
-          </Link>
-          <Link
-            href="/signup"
-            className="text-sm font-medium bg-[#6366F1] hover:bg-[#5558e6] text-white px-4 py-2 rounded-xl transition-all duration-150 hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] active:scale-95"
+          </a>
+          <a
+            href={"/signup"}
+            style={{
+              fontSize: 14,
+              fontWeight: 600,
+              background: "#6366F1",
+              color: "white",
+              padding: "8px 16px",
+              borderRadius: 12,
+              textDecoration: "none",
+              transition: "background 0.15s",
+            }}
           >
             Начать бесплатно
-          </Link>
+          </a>
         </div>
       </div>
     </motion.nav>

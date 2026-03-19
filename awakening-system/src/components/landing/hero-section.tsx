@@ -1,9 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { AppDemo } from "./app-demo";
+
+
 
 function fadeUp(delay: number) {
   return {
@@ -56,8 +57,7 @@ function Particles() {
       <div
         className="absolute inset-0"
         style={{
-          background:
-            "radial-gradient(ellipse 70% 50% at 60% 50%, rgba(99,102,241,0.07) 0%, transparent 70%)",
+          background: "radial-gradient(ellipse 70% 50% at 60% 50%, rgba(99,102,241,0.07) 0%, transparent 70%)",
         }}
       />
     </div>
@@ -70,17 +70,14 @@ export function HeroSection() {
       <div
         className="absolute inset-0"
         style={{
-          background:
-            "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99,102,241,0.12) 0%, #0A0A0F 60%)",
+          background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99,102,241,0.12) 0%, #0A0A0F 60%)",
         }}
       />
       <Particles />
 
       <div className="relative max-w-6xl mx-auto px-6 w-full py-20 lg:py-0">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
-          {/* Left: Copy */}
           <div>
-            {/* Badge */}
             <motion.div {...fadeUp(0)} className="inline-flex items-center gap-2 mb-6">
               <div
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
@@ -95,7 +92,6 @@ export function HeroSection() {
               </div>
             </motion.div>
 
-            {/* Headline */}
             <motion.h1
               {...fadeUp(0.1)}
               className="text-5xl lg:text-[3.8rem] font-black leading-[1.05] tracking-tight mb-6"
@@ -113,7 +109,6 @@ export function HeroSection() {
               </span>
             </motion.h1>
 
-            {/* Subheadline */}
             <motion.p
               {...fadeUp(0.2)}
               className="text-lg leading-relaxed mb-8 max-w-lg"
@@ -124,33 +119,33 @@ export function HeroSection() {
               захочешь бросать.
             </motion.p>
 
-            {/* CTA Buttons */}
             <motion.div {...fadeUp(0.3)} className="flex flex-wrap gap-3 mb-10">
-              <Link
-                href="/signup"
-                className="group flex items-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-sm text-white transition-all duration-200"
+              <a
+                href={"/signup"}
+                className="group flex items-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-sm text-white"
                 style={{
                   background: "linear-gradient(135deg, #6366F1, #4F46E5)",
                   boxShadow: "0 4px 24px rgba(99,102,241,0.35)",
+                  textDecoration: "none",
                 }}
               >
                 Начать бесплатно
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
+                <ArrowRight className="w-4 h-4" />
+              </a>
               <a
                 href="#features"
-                className="flex items-center gap-2 px-6 py-3.5 rounded-xl font-medium text-sm transition-all duration-200"
+                className="flex items-center gap-2 px-6 py-3.5 rounded-xl font-medium text-sm"
                 style={{
                   background: "rgba(255,255,255,0.04)",
                   border: "1px solid rgba(255,255,255,0.1)",
                   color: "#F0F0F5",
+                  textDecoration: "none",
                 }}
               >
                 Посмотреть возможности
               </a>
             </motion.div>
 
-            {/* Social proof */}
             <motion.div {...fadeUp(0.4)} className="flex items-center gap-4">
               <div className="flex -space-x-2">
                 {(["S", "A", "M", "K"] as const).map((letter, i) => (
@@ -170,7 +165,6 @@ export function HeroSection() {
               </p>
             </motion.div>
 
-            {/* Stats row */}
             <motion.div
               {...fadeUp(0.5)}
               className="mt-10 pt-8 grid grid-cols-3 gap-4"
@@ -182,10 +176,7 @@ export function HeroSection() {
                 { value: "S-ранг", label: "Вершина" },
               ].map((stat, i) => (
                 <div key={i}>
-                  <div
-                    className="text-lg font-bold"
-                    style={{ color: i === 2 ? "#FBBF24" : "#F0F0F5" }}
-                  >
+                  <div className="text-lg font-bold" style={{ color: i === 2 ? "#FBBF24" : "#F0F0F5" }}>
                     {stat.value}
                   </div>
                   <div className="text-xs mt-0.5" style={{ color: "#55556A" }}>
@@ -196,7 +187,6 @@ export function HeroSection() {
             </motion.div>
           </div>
 
-          {/* Right: App Demo */}
           <motion.div
             initial={{ opacity: 0, x: 30, scale: 0.97 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
