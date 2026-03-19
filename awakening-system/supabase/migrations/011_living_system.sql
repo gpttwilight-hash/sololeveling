@@ -48,7 +48,7 @@ CREATE POLICY "Anyone can read portal templates" ON portal_templates
 CREATE TABLE IF NOT EXISTS user_portal_progress (
   user_id         UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   date            DATE NOT NULL,
-  template_id     TEXT NOT NULL REFERENCES portal_templates(id),
+  template_id     TEXT NOT NULL,
   steps_completed INT NOT NULL DEFAULT 0 CHECK (steps_completed BETWEEN 0 AND 3),
   is_finished     BOOLEAN NOT NULL DEFAULT FALSE,
   started_at      TIMESTAMPTZ DEFAULT NOW(),

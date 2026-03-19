@@ -620,16 +620,12 @@ export async function completePortalStep(
     throw new Error(`Step ${stepIndex} not yet unlocked`);
   }
 
-  const { data: template } = await db
-    .from("portal_templates")
-    .select("*")
-    .eq("id", progress.template_id)
-    .single() as { data: AnyRecord | null };
-
+  // Get XP from TypeScript constants — portal_templates DB table is not populated
+  const { PORTAL_TEMPLATES } = await import("@/lib/game/portal-templates");
+  const template = PORTAL_TEMPLATES.find((t) => t.id === (progress.template_id as string));
   if (!template) throw new Error("Portal template not found");
 
-  const stepXpField = `step${stepIndex + 1}_xp` as "step1_xp" | "step2_xp" | "step3_xp";
-  const xpEarned = template[stepXpField] as number;
+  const xpEarned = template.steps[stepIndex].xp;
   const newStepsCompleted = stepIndex + 1;
   const isFinished = newStepsCompleted === 3;
 
