@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2 } from "lucide-react";
+import { Loader2, MailCheck } from "lucide-react";
 import { signup } from "../actions";
 
 const schema = z
@@ -29,6 +30,8 @@ const inputStyle = {
 
 export default function SignupPage() {
   const [serverError, setServerError] = useState<string | null>(null);
+  const [confirmedEmail, setConfirmedEmail] = useState<string | null>(null);
+  const router = useRouter();
 
   const {
     register,
@@ -43,7 +46,13 @@ export default function SignupPage() {
     formData.set("password", data.password);
     const result = await signup(formData);
     if (result?.error) {
-      setServerError(result.error);
+      if (result.error === "EMAIL_ALREADY_EXISTS") {
+        setServerError("EMAIL_ALREADY_EXISTS:" + data.email);
+      } else {
+        setServerError(result.error);
+      }
+    } else if (result?.confirmEmail) {
+      setConfirmedEmail(data.email);
     }
   }
 
@@ -55,6 +64,34 @@ export default function SignupPage() {
     e.target.style.borderColor = "var(--border-subtle)";
     e.target.style.boxShadow = "none";
   };
+
+  if (confirmedEmail) {
+    return (
+      <div className="w-full max-w-sm text-center space-y-4">
+        <MailCheck className="w-14 h-14 mx-auto" style={{ color: "var(--color-xp)" }} />
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+          Подтверди email
+        </h1>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          Мы отправили письмо на{" "}
+          <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
+            {confirmedEmail}
+          </span>
+          .<br />Нажми на ссылку в письме — и ты сразу попадёшь в игру.
+        </p>
+        <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+          Не пришло? Проверь папку «Спам».
+        </p>
+        <Link
+          href="/login"
+          className="inline-block text-sm font-medium hover:opacity-80"
+          style={{ color: "var(--color-xp)" }}
+        >
+          Вернуться к входу
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-sm">
@@ -93,18 +130,41 @@ export default function SignupPage() {
             </div>
           ))}
 
-          {serverError && (
-            <div
-              className="rounded-xl px-4 py-3 text-sm"
-              style={{
-                background: "rgba(239, 68, 68, 0.1)",
-                border: "1px solid rgba(239, 68, 68, 0.2)",
-                color: "var(--color-danger)",
-              }}
-            >
-              {serverError}
-            </div>
-          )}
+          {serverError && (() => {
+            const isEmailExists = serverError.startsWith("EMAIL_ALREADY_EXISTS:");
+            const emailVal = isEmailExists ? serverError.split(":")[1] : "";
+            return (
+              <div
+                className="rounded-xl px-4 py-3 text-sm"
+                style={{
+                  background: "rgba(239, 68, 68, 0.1)",
+                  border: "1px solid rgba(239, 68, 68, 0.2)",
+                  color: "var(--color-danger)",
+                }}
+              >
+                {isEmailExists ? (
+                  <>
+                    Этот email уже зарегистрирован.{" "}
+                    <button
+                      type="button"
+                      className="underline font-medium"
+                      onClick={() => router.push(`/login?email=${encodeURIComponent(emailVal)}`)}
+                    >
+                      Войти
+                    </button>{" "}
+                    или{" "}
+                    <button
+                      type="button"
+                      className="underline font-medium"
+                      onClick={() => router.push(`/forgot-password?email=${encodeURIComponent(emailVal)}`)}
+                    >
+                      восстановить пароль
+                    </button>
+                  </>
+                ) : serverError}
+              </div>
+            );
+          })()}
 
           <button
             type="submit"

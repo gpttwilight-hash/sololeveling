@@ -93,11 +93,18 @@ export default function LoginPage() {
 
           {/* Password */}
           <div>
-            <label
-              className="block text-xs font-medium mb-1.5"
-              style={{ color: "var(--text-secondary)" }}>
-              Пароль
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                Пароль
+              </label>
+              <Link
+                href="/forgot-password"
+                className="text-xs hover:opacity-80 transition-opacity"
+                style={{ color: "var(--color-xp)" }}
+              >
+                Забыли пароль?
+              </Link>
+            </div>
             <input
               {...register("password")}
               type="password"
