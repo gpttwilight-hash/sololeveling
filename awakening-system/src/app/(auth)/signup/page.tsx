@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2 } from "lucide-react";
+import { Loader2, MailCheck } from "lucide-react";
 import { signup } from "../actions";
 
 const schema = z
@@ -30,6 +30,7 @@ const inputStyle = {
 
 export default function SignupPage() {
   const [serverError, setServerError] = useState<string | null>(null);
+  const [confirmedEmail, setConfirmedEmail] = useState<string | null>(null);
   const router = useRouter();
 
   const {
@@ -50,6 +51,8 @@ export default function SignupPage() {
       } else {
         setServerError(result.error);
       }
+    } else if (result?.confirmEmail) {
+      setConfirmedEmail(data.email);
     }
   }
 
@@ -61,6 +64,34 @@ export default function SignupPage() {
     e.target.style.borderColor = "var(--border-subtle)";
     e.target.style.boxShadow = "none";
   };
+
+  if (confirmedEmail) {
+    return (
+      <div className="w-full max-w-sm text-center space-y-4">
+        <MailCheck className="w-14 h-14 mx-auto" style={{ color: "var(--color-xp)" }} />
+        <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>
+          Подтверди email
+        </h1>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          Мы отправили письмо на{" "}
+          <span className="font-semibold" style={{ color: "var(--text-primary)" }}>
+            {confirmedEmail}
+          </span>
+          .<br />Нажми на ссылку в письме — и ты сразу попадёшь в игру.
+        </p>
+        <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+          Не пришло? Проверь папку «Спам».
+        </p>
+        <Link
+          href="/login"
+          className="inline-block text-sm font-medium hover:opacity-80"
+          style={{ color: "var(--color-xp)" }}
+        >
+          Вернуться к входу
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-sm">

@@ -32,6 +32,11 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Let auth callback through without any redirect
+  if (pathname.startsWith("/auth/callback")) {
+    return supabaseResponse;
+  }
+
   // Auth routes: redirect to dashboard if already logged in
   if (user && (pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/forgot-password"))) {
     return NextResponse.redirect(new URL("/dashboard", request.url));

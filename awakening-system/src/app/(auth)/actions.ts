@@ -53,8 +53,14 @@ export async function signup(formData: FormData) {
     return { error: "EMAIL_ALREADY_EXISTS" };
   }
 
-  revalidatePath("/", "layout");
-  redirect("/onboarding");
+  // Session exists = email confirmation disabled, go straight to onboarding
+  if (data.session) {
+    revalidatePath("/", "layout");
+    redirect("/onboarding");
+  }
+
+  // No session = email confirmation required, tell client to show "check email" screen
+  return { confirmEmail: true };
 }
 
 export async function resetPassword(formData: FormData) {
@@ -64,7 +70,7 @@ export async function resetPassword(formData: FormData) {
   if (!email) return { error: "Введите email" };
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/reset-password`,
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/auth/callback?next=/reset-password`,
   });
 
   if (error) return { error: error.message };
