@@ -4,6 +4,7 @@ import { checkRankUp } from "@/lib/game/rank-system";
 import { getTotalXPForLevel } from "@/lib/game/xp-calculator";
 import { evaluateCondition } from "@/lib/game/achievement-checker";
 import type { Profile } from "@/types/game";
+import { sanitizeAIQuest } from "@/lib/game/ai-quest-sanitizer";
 
 // ─── HIGH-1: checkLevelUp + checkRankUp integration ───────────────────────────
 
@@ -86,5 +87,35 @@ describe("evaluateCondition - coins_earned", () => {
       { profile }, // no totalCoinsEarned
     );
     expect(result).toBe(true);
+  });
+});
+
+// ─── CRIT-2 / MED-3: AI quest sanitization ────────────────────────────────────
+
+describe("sanitizeAIQuest", () => {
+  it("caps xp_reward above legendary max (80)", () => {
+    const result = sanitizeAIQuest({ xp_reward: 999999, coin_reward: 10 });
+    expect(result.xp_reward).toBe(80);
+  });
+
+  it("caps coin_reward above max (40)", () => {
+    const result = sanitizeAIQuest({ xp_reward: 10, coin_reward: 999999 });
+    expect(result.coin_reward).toBe(40);
+  });
+
+  it("floors xp_reward below 1", () => {
+    const result = sanitizeAIQuest({ xp_reward: -5, coin_reward: 10 });
+    expect(result.xp_reward).toBe(1);
+  });
+
+  it("floors coin_reward below 1", () => {
+    const result = sanitizeAIQuest({ xp_reward: 10, coin_reward: 0 });
+    expect(result.coin_reward).toBe(1);
+  });
+
+  it("passes through valid values unchanged", () => {
+    const result = sanitizeAIQuest({ xp_reward: 30, coin_reward: 15 });
+    expect(result.xp_reward).toBe(30);
+    expect(result.coin_reward).toBe(15);
   });
 });
