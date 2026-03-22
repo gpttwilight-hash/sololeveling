@@ -9,12 +9,28 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let subscription: Json;
+  let body: unknown;
   try {
-    subscription = (await req.json()) as Json;
+    body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
+
+  // Validate Web Push subscription shape
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    typeof (body as Record<string, unknown>).endpoint !== "string" ||
+    !(body as Record<string, unknown>).endpoint ||
+    typeof (body as Record<string, unknown>).keys !== "object"
+  ) {
+    return NextResponse.json(
+      { error: "Invalid push subscription: must include endpoint and keys" },
+      { status: 400 }
+    );
+  }
+
+  const subscription = body as Json;
 
   const { error } = await supabase.from("push_subscriptions").upsert({
     user_id: user.id,
