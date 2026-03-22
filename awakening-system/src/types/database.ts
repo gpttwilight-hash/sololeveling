@@ -288,6 +288,16 @@ export interface Database {
         Args: { p_user_id: string };
         Returns: void;
       };
+      complete_quest: {
+        Args: {
+          p_quest_id: string;
+          p_user_id: string;
+          p_xp_earned: number;
+          p_coins_earned: number;
+          p_attr_column: string;
+        };
+        Returns: void;
+      };
     };
     Enums: Record<string, never>;
   };
