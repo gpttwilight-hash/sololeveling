@@ -28,13 +28,14 @@ export async function completeQuest(questId: string, partial = false): Promise<C
   if (quest.is_completed) throw new Error("Quest already completed");
 
   // Fetch current profile
-  const { data: profile, error: profileErr } = await supabase
+  const { data: rawProfile, error: profileErr } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .single();
 
-  if (profileErr || !profile) throw new Error("Profile not found");
+  if (profileErr || !rawProfile) throw new Error("Profile not found");
+  const profile = rawProfile as unknown as Profile;
 
   // Apply debuff penalty if active
   const debuffs = (profile.active_debuffs as Array<{ type: "laziness" | "burnout"; xp_penalty?: number; triggered_at: string }>) ?? [];
@@ -73,6 +74,7 @@ export async function completeQuest(questId: string, partial = false): Promise<C
       level: newLevel,
       ...(newRank ? { rank: newRank } : {}),
       [attrColumn]: (profile[attrColumn] as number) + xpEarned,
+      total_coins_earned: ((profile.total_coins_earned as number) ?? 0) + coinsEarned,
     })
     .eq("id", user.id);
 
@@ -147,6 +149,7 @@ export async function completeQuest(questId: string, partial = false): Promise<C
     rank: newRank ?? profile.rank,
     [attrColumn]: (profile[attrColumn] as number) + xpEarned,
     active_debuffs: debuffs,
+    total_coins_earned: ((profile.total_coins_earned as number) ?? 0) + coinsEarned,
   };
 
   const { data: allAchievements } = await supabase.from("achievements").select("*");
@@ -163,7 +166,7 @@ export async function completeQuest(questId: string, partial = false): Promise<C
     if (unlockedIds.has(achievement.id)) continue;
     const met = evaluateCondition(achievement.condition as AchievementCondition, {
       profile: updatedProfile,
-      totalCoinsEarned: updatedProfile.coins, // approximate until Task 9 adds total_coins_earned column
+      totalCoinsEarned: updatedProfile.total_coins_earned ?? 0,
     });
     if (met) {
       toUnlock.push({ user_id: user.id, achievement_id: achievement.id });

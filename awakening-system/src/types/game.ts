@@ -133,6 +133,7 @@ export interface Profile {
   streak_shields?: number;
   active_debuffs: Debuff[];
   onboarding_completed: boolean;
+  total_coins_earned?: number;
 
   // Subscription fields
   subscription_tier?: 'hunter' | 'monarch';
