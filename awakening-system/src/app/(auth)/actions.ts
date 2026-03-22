@@ -52,11 +52,16 @@ export async function signup(formData: FormData) {
   });
 
   if (error) {
-    // Email confirmation OFF: Supabase returns explicit error
+    // Check by error code first (most reliable), then fall back to message matching
+    const code = (error as { code?: string }).code ?? "";
+    const msg = error.message.toLowerCase();
     if (
-      error.message.toLowerCase().includes("already registered") ||
-      error.message.toLowerCase().includes("already exists") ||
-      error.message.toLowerCase().includes("user already")
+      code === "user_already_exists" ||
+      code === "email_exists" ||
+      msg.includes("already registered") ||
+      msg.includes("already exists") ||
+      msg.includes("user already") ||
+      msg.includes("already in use")
     ) {
       return { error: "EMAIL_ALREADY_EXISTS" };
     }
@@ -64,7 +69,8 @@ export async function signup(formData: FormData) {
   }
 
   // Email confirmation ON: Supabase silently "succeeds" but returns
-  // a fake user with empty identities and no session
+  // a fake user with empty identities and no session — covers confirmed emails.
+  // Also covers unconfirmed emails when re-registering after initial signup attempt.
   if (!data.session && (!data.user?.identities || data.user.identities.length === 0)) {
     return { error: "EMAIL_ALREADY_EXISTS" };
   }

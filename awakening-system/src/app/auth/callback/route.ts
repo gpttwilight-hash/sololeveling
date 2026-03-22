@@ -34,9 +34,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=auth_failed", origin));
   }
 
-  // If caller specified a next page (e.g. /reset-password), go there
+  // If caller specified a next page (e.g. /reset-password), go there.
+  // For password recovery: append ?recovery=1 so the client page can show the
+  // form immediately without waiting for PASSWORD_RECOVERY event (which never
+  // fires in PKCE flow because the code exchange happened server-side).
   if (next) {
-    return NextResponse.redirect(new URL(next, origin));
+    const nextUrl = new URL(next, origin);
+    if (next.includes("reset-password")) {
+      nextUrl.searchParams.set("recovery", "1");
+    }
+    return NextResponse.redirect(nextUrl);
   }
 
   // Determine where to send the user based on onboarding status
