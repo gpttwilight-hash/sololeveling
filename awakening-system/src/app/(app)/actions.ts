@@ -24,7 +24,7 @@ export async function completeQuest(questId: string, partial = false): Promise<C
 
   const quest = rawQuest as unknown as Quest;
 
-  if (questErr || !quest) throw new Error(`Quest not found (id=${questId}, err=${questErr?.message})`);
+  if (questErr || !quest) throw new Error("Quest not found");
   if (quest.is_completed) throw new Error("Quest already completed");
 
   // Fetch current profile
@@ -34,7 +34,7 @@ export async function completeQuest(questId: string, partial = false): Promise<C
     .eq("id", user.id)
     .single();
 
-  if (profileErr || !profile) throw new Error(`Profile not found (err=${profileErr?.message})`);
+  if (profileErr || !profile) throw new Error("Profile not found");
 
   // Apply debuff penalty if active
   const debuffs = (profile.active_debuffs as Array<{ type: "laziness" | "burnout"; xp_penalty?: number; triggered_at: string }>) ?? [];
@@ -203,6 +203,17 @@ export async function redeemReward(rewardId: string): Promise<{ success: boolean
 
   if (!reward) throw new Error("Reward not found");
 
+  // Enforce cooldown: check if enough time has elapsed since last redemption
+  if (reward.cooldown_hours && reward.last_redeemed_at) {
+    const lastRedeemed = new Date(reward.last_redeemed_at as string).getTime();
+    const cooldownMs = (reward.cooldown_hours as number) * 60 * 60 * 1000;
+    const cooldownEndsAt = lastRedeemed + cooldownMs;
+    if (Date.now() < cooldownEndsAt) {
+      const remainingHours = Math.ceil((cooldownEndsAt - Date.now()) / (60 * 60 * 1000));
+      throw new Error(`Награда недоступна ещё ${remainingHours} ч.`);
+    }
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("coins")
@@ -244,9 +255,15 @@ export async function declareRestDay(): Promise<void> {
     date: today,
     is_rest_day: true,
   });
+  const { data: profileForRest } = await supabase
+    .from("profiles")
+    .select("rest_days_used_this_week")
+    .eq("id", user.id)
+    .single();
+
   await supabase
     .from("profiles")
-    .update({ rest_days_used_this_week: 1 })
+    .update({ rest_days_used_this_week: ((profileForRest?.rest_days_used_this_week as number) ?? 0) + 1 })
     .eq("id", user.id);
 
   revalidatePath("/dashboard");
@@ -353,6 +370,11 @@ export async function updateQuest(questId: string, data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
+  // Input validation — mirrors createQuest validation
+  const title = data.title?.trim();
+  if (!title || title.length === 0) throw new Error("Название квеста не может быть пустым");
+  if (title.length > 120) throw new Error("Название квеста слишком длинное (макс. 120 символов)");
+
   const xpByDifficulty: Record<string, number> = {
     easy: 8, medium: 15, hard: 30, legendary: 80,
   };
@@ -362,7 +384,7 @@ export async function updateQuest(questId: string, data: {
   const { error: updateError } = await supabase
     .from("quests")
     .update({
-      title: data.title,
+      title,
       type: data.type,
       attribute: data.attribute,
       difficulty: data.difficulty,
@@ -521,7 +543,7 @@ export async function reorderQuests(questIds: string[]): Promise<void> {
   if (!user) throw new Error("Not authenticated");
 
   // Perform updates in parallel
-  const updates = questIds.map((id, index) =>
+  const updates = questIds.slice(0, 500).map((id, index) =>
     supabase
       .from("quests")
       .update({ sort_order: index })
