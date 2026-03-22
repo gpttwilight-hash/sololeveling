@@ -104,8 +104,8 @@ export async function updatePassword(formData: FormData) {
   const supabase = await createClient();
   const password = formData.get("password") as string;
 
-  if (!password || password.length < 6) {
-    return { error: "Минимум 6 символов" };
+  if (!password || password.length < 8) {
+    return { error: "Минимум 8 символов" };
   }
 
   const { error } = await supabase.auth.updateUser({ password });
