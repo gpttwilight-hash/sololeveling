@@ -56,9 +56,7 @@ export async function completeQuest(questId: string, partial = false): Promise<C
 
   // Check level/rank changes
   const { leveledUp, newLevel } = checkLevelUp(profile.total_xp, xpEarned);
-  const rankedUp = checkLevelUp(profile.total_xp, xpEarned).leveledUp
-    ? checkRankUp(profile.level, newLevel)
-    : false;
+  const rankedUp = leveledUp ? checkRankUp(profile.level, newLevel) : false;
   const newRank = rankedUp ? getRankFromLevel(newLevel).id : undefined;
 
   const newTotalXP = profile.total_xp + xpEarned;
