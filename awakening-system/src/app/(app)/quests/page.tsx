@@ -15,6 +15,17 @@ export default async function QuestsPage({ searchParams }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Reset recurring daily quests completed before today
+  const today = new Date().toISOString().split("T")[0];
+  await supabase
+    .from("quests")
+    .update({ is_completed: false, last_reset_date: today })
+    .eq("user_id", user.id)
+    .eq("type", "daily")
+    .eq("is_recurring", true)
+    .eq("is_completed", true)
+    .or(`last_reset_date.is.null,last_reset_date.lt.${today}`);
+
   const { data } = await supabase
     .from("quests")
     .select("*, subquests(*)")

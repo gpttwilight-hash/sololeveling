@@ -46,6 +46,17 @@ export default async function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabaseAny = supabase as any;
 
+  // ── Reset recurring daily quests that were completed before today ─────────
+  // Runs on every dashboard load — no cron dependency needed.
+  await supabase
+    .from("quests")
+    .update({ is_completed: false, last_reset_date: today })
+    .eq("user_id", user.id)
+    .eq("type", "daily")
+    .eq("is_recurring", true)
+    .eq("is_completed", true)
+    .or(`last_reset_date.is.null,last_reset_date.lt.${today}`);
+
   // ── Parallel data fetching ────────────────────────────────────────────────
   const [
     bossResult,
