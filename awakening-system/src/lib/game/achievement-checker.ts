@@ -8,6 +8,7 @@ interface CheckContext {
   newRank?: string;
   epicsCompleted?: number;
   rewardsRedeemed?: number;
+  totalCoinsEarned?: number;
 }
 
 /**
@@ -48,7 +49,8 @@ export function evaluateCondition(
     }
 
     case "coins_earned":
-      return profile.coins >= condition.total;
+      // Use totalCoinsEarned if provided; fall back to profile.coins for backwards compatibility
+      return (ctx.totalCoinsEarned ?? profile.coins) >= condition.total;
 
     case "epic_completed":
       return (ctx.epicsCompleted ?? 0) >= 1;

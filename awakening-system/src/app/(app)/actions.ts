@@ -163,6 +163,7 @@ export async function completeQuest(questId: string, partial = false): Promise<C
     if (unlockedIds.has(achievement.id)) continue;
     const met = evaluateCondition(achievement.condition as AchievementCondition, {
       profile: updatedProfile,
+      totalCoinsEarned: updatedProfile.coins, // approximate until Task 9 adds total_coins_earned column
     });
     if (met) {
       toUnlock.push({ user_id: user.id, achievement_id: achievement.id });
