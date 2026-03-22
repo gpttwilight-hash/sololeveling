@@ -14,11 +14,27 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes("email not confirmed")) {
+      return { error: "EMAIL_NOT_CONFIRMED" };
+    }
+    if (msg.includes("invalid login") || msg.includes("invalid credentials") || msg.includes("wrong password")) {
+      return { error: "Неверный email или пароль" };
+    }
     return { error: error.message };
   }
 
   revalidatePath("/", "layout");
   redirect("/dashboard");
+}
+
+export async function resendConfirmation(formData: FormData) {
+  const supabase = await createClient();
+  const email = formData.get("email") as string;
+  if (!email) return { error: "Email не указан" };
+  const { error } = await supabase.auth.resend({ type: "signup", email });
+  if (error) return { error: error.message };
+  return { success: true };
 }
 
 export async function signup(formData: FormData) {
