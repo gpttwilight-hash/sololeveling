@@ -8,12 +8,11 @@ beforeEach(() => {
 });
 
 describe("useSectionHint", () => {
-  it("initializes with isDismissed=true for SSR safety, then syncs with localStorage", async () => {
-    // Hook's useState initializes isDismissed=true (SSR-safe: card hidden on server)
-    // useEffect then updates based on localStorage
+  it("treats only '1' as dismissed — other localStorage values are treated as not dismissed", async () => {
+    localStorage.setItem("hint_dismissed_test_key", "true"); // not "1"
     const { result } = renderHook(() => useSectionHint("test_key"));
-    // After render/effect with no localStorage entry, isDismissed becomes false
-    expect(result.current.isDismissed).toBe(false);
+    await act(async () => {});
+    expect(result.current.isDismissed).toBe(false); // only "1" counts as dismissed
   });
 
   it("returns isDismissed=false after hydration when key is absent from localStorage", async () => {
