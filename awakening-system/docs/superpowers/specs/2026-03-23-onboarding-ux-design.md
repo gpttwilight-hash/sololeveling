@@ -71,27 +71,32 @@ Tapping navigates to `/quests` (Инициация tab). Widget disappears when 
 
 ### The 9 Tutorial Quests
 
-All quests use self-reported completion (user performs the action, then taps "Выполнено"). They do not auto-complete.
+All quests use **self-reported completion** (user performs the action, then taps "Выполнено"). They do not auto-complete — including quests #8 and #9, which describe observable system state but are completed by the user manually once they feel the condition is met.
 
-| # | Title | What it teaches | XP | Coins | Attribute |
-|---|-------|-----------------|----|-------|-----------|
-| 1 | Выполни свой первый ежедневный квест | Quest completion mechanic | 20 | 10 | DIS |
-| 2 | Создай собственный квест | Custom quest creation | 15 | 8 | INT |
-| 3 | Загляни в Магазин и изучи награды | Coin economy | 10 | 5 | WLT |
-| 4 | Потрать монеты на любую награду | Shop redemption mechanic | 15 | 10 | WLT |
-| 5 | Создай Epic Quest | Long-term goal system | 20 | 10 | DIS |
-| 6 | Открой раздел Статистика | Progress tracking | 10 | 5 | INT |
-| 7 | Открой раздел Достижения | Achievement system | 10 | 5 | INT |
-| 8 | Выполни 3 квеста за один день | Daily activity habit | 25 | 15 | DIS |
-| 9 | Поддержи streak 2 дня подряд | Streak mechanic | 30 | 20 | DIS |
+All tutorial quests are seeded with `difficulty = "easy"` and `is_recurring = false`. The `is_recurring = false` value is critical — it ensures the daily cron reset job (which targets `type = 'daily' AND is_recurring = true`) never touches tutorial quests.
+
+| # | Title | What it teaches | XP | Coins | Attribute | Difficulty |
+|---|-------|-----------------|----|-------|-----------|------------|
+| 1 | Выполни свой первый ежедневный квест | Quest completion mechanic | 20 | 10 | DIS | easy |
+| 2 | Создай собственный квест | Custom quest creation | 15 | 8 | INT | easy |
+| 3 | Загляни в Магазин и изучи награды | Coin economy | 10 | 5 | WLT | easy |
+| 4 | Потрать монеты на любую награду | Shop redemption mechanic | 15 | 10 | WLT | easy |
+| 5 | Создай Epic Quest | Long-term goal system | 20 | 10 | DIS | easy |
+| 6 | Открой раздел Статистика | Progress tracking | 10 | 5 | INT | easy |
+| 7 | Открой раздел Достижения | Achievement system | 10 | 5 | INT | easy |
+| 8 | Выполни 3 квеста за один день | Daily activity habit | 25 | 15 | DIS | easy |
+| 9 | Поддержи streak 2 дня подряд | Streak mechanic | 30 | 20 | DIS | easy |
 
 **Total: 155 XP, 88 coins** — meaningful starter boost, within economy bounds.
 
 ### Data model
-- Add `tutorial` to the `quest_type` enum in the DB (new migration)
-- Tutorial quests stored as regular rows in `quests` table with `type = 'tutorial'`
+- Add `tutorial` to the `quest_type` enum in the DB (migration `019_add_tutorial_quest_type.sql`)
+- Add `"tutorial"` to the TypeScript `QuestType` union in `src/types/game.ts` and both occurrences in `src/types/database.ts`
+- Add `"tutorial"` to the inline type literals in `src/app/(app)/actions.ts` (two locations: `createQuest` and `updateQuest` type guards)
+- Tutorial quests stored as regular rows in `quests` table with `type = 'tutorial'`, `is_recurring = false`, `difficulty = 'easy'`
 - Completion via existing `completeQuest` action (no new endpoints)
-- Dashboard widget count: query `quests` where `type = 'tutorial'` and `is_completed = false`
+- **Single fetch strategy:** `quests/page.tsx` (Server Component) fetches `tutorialQuests` once and passes the array as props to both `InitiationTab` and `InitiationWidget`. Do not issue two separate DB queries.
+- Verify no migration file conflicts at `019` before applying (check `supabase/migrations/` directory)
 
 ---
 
@@ -102,9 +107,13 @@ All quests use self-reported completion (user performs the action, then taps "В
 - Reusable `SectionHintCard` component: accepts `hintKey` + title + bullet points
 - On mount: reads localStorage; if key absent → renders card
 - On dismiss: sets key to `"1"` in localStorage → card unmounts
+- **SSR safety:** `useSectionHint` must be used only inside `"use client"` components. Access `localStorage` only inside `useEffect` or behind a `typeof window !== 'undefined'` guard — direct access at render time will throw on the server.
+- **localStorage cleared:** hints reappear for all sections. This is accepted behaviour — no workaround needed.
 
 ### Hook
 `useSectionHint(hintKey: string): { isDismissed: boolean; dismiss: () => void }`
+
+Internally uses `useEffect` to read/write `localStorage` after hydration. Returns `isDismissed = true` on first render (SSR-safe default) and updates to the stored value after mount.
 
 ### 5 Section Hints
 
@@ -120,7 +129,7 @@ All quests use self-reported completion (user performs the action, then taps "В
 > - Создавай награды для себя — всё что мотивирует
 > - У каждой награды можно поставить кулдаун, чтобы не злоупотреблять
 
-**`/quests` Epic tab** — shown on first switch to the Epic tab (key: `hint_dismissed_epic`)
+**`/quests` Epic tab** — shown when the Epic tab is active (key: `hint_dismissed_epic`). The Epic tab content is **lazily mounted** — rendered only when the user switches to it. `SectionHintCard` is placed inside the Epic tab content; `useSectionHint` fires on mount, which happens on first tab switch. If the tab implementation ever changes to eager rendering, move the hint check to also require `isTabActive === true`.
 > **⚔️ Epic Quests — долгосрочные цели**
 > - Большие задачи которые разбиваются на подзадачи
 > - Прогресс виден на дашборде
@@ -156,11 +165,14 @@ All quests use self-reported completion (user performs the action, then taps "В
 |------|--------|
 | `src/app/onboarding/page.tsx` | Add teaser text in Step 1 + second line in Rank Reveal |
 | `src/app/onboarding/actions.ts` | Seed 9 tutorial quests in `completeOnboarding` |
-| `src/app/(app)/quests/page.tsx` | Add "Инициация" tab (first tab, conditional) |
+| `src/app/(app)/quests/page.tsx` | Add "Инициация" tab (first tab, conditional); fetch `tutorialQuests` once, pass to tab + widget |
 | `src/app/(app)/dashboard/page.tsx` | Add `InitiationWidget` below `ProfileCard` |
 | `src/app/(app)/shop/page.tsx` | Add `SectionHintCard` at top |
 | `src/app/(app)/stats/page.tsx` | Add `SectionHintCard` at top |
 | `src/app/(app)/achievements/page.tsx` | Add `SectionHintCard` at top |
+| `src/types/game.ts` | Add `"tutorial"` to `QuestType` union |
+| `src/types/database.ts` | Add `"tutorial"` to both `type` field occurrences in quest-related types |
+| `src/app/(app)/actions.ts` | Add `"tutorial"` to inline type literals in `createQuest` and `updateQuest` |
 
 ---
 
