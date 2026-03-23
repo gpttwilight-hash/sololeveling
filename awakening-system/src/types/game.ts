@@ -11,7 +11,7 @@ export interface Attributes {
 
 export type AttributeKey = "str" | "int" | "cha" | "dis" | "wlt" | "hidden";
 
-export type QuestType = "daily" | "weekly" | "epic";
+export type QuestType = "daily" | "weekly" | "epic" | "tutorial";
 export type QuestDifficulty = "easy" | "medium" | "hard" | "legendary";
 
 export interface Subquest {

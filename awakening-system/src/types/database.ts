@@ -40,7 +40,7 @@ type QuestRow = {
   user_id: string;
   title: string;
   description: string | null;
-  type: "daily" | "weekly" | "epic";
+  type: "daily" | "weekly" | "epic" | "tutorial";
   difficulty: "easy" | "medium" | "hard" | "legendary";
   attribute: "str" | "int" | "cha" | "dis" | "wlt" | "hidden";
   xp_reward: number;
@@ -178,7 +178,7 @@ export interface Database {
           id?: string;
           user_id: string;
           title: string;
-          type: "daily" | "weekly" | "epic";
+          type: "daily" | "weekly" | "epic" | "tutorial";
           attribute: "str" | "int" | "cha" | "dis" | "wlt" | "hidden";
           xp_reward: number;
           coin_reward: number;

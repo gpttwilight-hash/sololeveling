@@ -287,7 +287,7 @@ export async function updateEpicProgress(questId: string, value: number): Promis
 
 export async function createQuest(data: {
   title: string;
-  type: "daily" | "weekly" | "epic";
+  type: "daily" | "weekly" | "epic" | "tutorial";
   attribute: "str" | "int" | "cha" | "dis" | "wlt" | "hidden";
   difficulty: "easy" | "medium" | "hard" | "legendary";
   description?: string;
@@ -310,7 +310,7 @@ export async function createQuest(data: {
   if (!title || title.length === 0) throw new Error("Название квеста не может быть пустым");
   if (title.length > 120) throw new Error("Название квеста слишком длинное (макс. 120 символов)");
 
-  const VALID_TYPES = ["daily", "weekly", "epic"] as const;
+  const VALID_TYPES = ["daily", "weekly", "epic", "tutorial"] as const;
   const VALID_ATTRS = ["str", "int", "cha", "dis", "wlt", "hidden"] as const;
   const VALID_DIFFS = ["easy", "medium", "hard", "legendary"] as const;
   if (!(VALID_TYPES as readonly string[]).includes(data.type)) throw new Error("Неверный тип квеста");
@@ -354,7 +354,7 @@ export async function createQuest(data: {
 
 export async function updateQuest(questId: string, data: {
   title: string;
-  type: "daily" | "weekly" | "epic";
+  type: "daily" | "weekly" | "epic" | "tutorial";
   attribute: "str" | "int" | "cha" | "dis" | "wlt" | "hidden";
   difficulty: "easy" | "medium" | "hard" | "legendary";
   description?: string;
