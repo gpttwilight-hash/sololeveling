@@ -114,6 +114,7 @@ export async function completeOnboarding(formData: FormData) {
     coin_reward: q.coin_reward,
     is_active: true,
     is_completed: false,
+    is_recurring: false,
     sort_order: i,
   }));
 
