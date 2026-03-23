@@ -93,8 +93,8 @@ function TutorialQuestCard({ quest }: { quest: Quest }) {
     <div
       className="rounded-2xl px-4 py-3 flex items-start gap-3 transition-all"
       style={{
-        background: done ? "var(--bg-secondary)" : "var(--bg-secondary)",
-        border: `1px solid ${done ? "var(--border-subtle)" : "var(--color-xp)"}`,
+        background: "var(--bg-secondary)",
+        border: "1px solid var(--border-subtle)",
         borderLeftWidth: "3px",
         borderLeftColor: done ? "var(--border-subtle)" : "var(--color-xp)",
         opacity: done ? 0.6 : 1,
