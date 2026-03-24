@@ -156,9 +156,9 @@ export default function OnboardingPage() {
             </motion.p>
             <motion.p
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}
-              className="text-gray-400 font-mono"
+              className="text-gray-400 font-mono text-center"
             >
-              Путь начат. Система ожидает действий.
+              ⚡ Система инициации активирована — 9 заданий ожидают тебя
             </motion.p>
           </motion.div>
         )}
@@ -245,6 +245,12 @@ export default function OnboardingPage() {
                   </div>
                 ))}
               </div>
+              <p
+                className="text-xs text-center mb-6 px-2"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                После регистрации Система выдаст тебе Задания инициации — они научат тебя всему остальному на практике. За каждое — настоящие XP.
+              </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setStep(0)}
