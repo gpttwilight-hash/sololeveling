@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { RewardCard } from "@/components/shop/reward-card";
 import { RewardForm } from "@/components/shop/reward-form";
+import { SectionHintCard } from "@/components/shared/section-hint-card";
 import type { Reward } from "@/types/game";
 
 export default async function ShopPage() {
@@ -24,6 +25,16 @@ export default async function ShopPage() {
 
   return (
     <div>
+      <SectionHintCard
+        hintKey="shop"
+        title="🛒 Как работает магазин"
+        bullets={[
+          "За выполнение квестов ты получаешь монеты",
+          "Создавай награды для себя — всё что мотивирует",
+          "У каждой награды можно поставить кулдаун, чтобы не злоупотреблять",
+        ]}
+      />
+
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-h1" style={{ color: "var(--text-primary)" }}>Магазин</h1>

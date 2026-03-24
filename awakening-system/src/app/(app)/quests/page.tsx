@@ -4,6 +4,7 @@ import { EpicQuestCard } from "@/components/quests/epic-quest-card";
 import { QuestForm } from "@/components/quests/quest-form";
 import { SortableQuestList } from "@/components/quests/sortable-quest-list";
 import { InitiationTab } from "@/components/quests/initiation-tab";
+import { SectionHintCard } from "@/components/shared/section-hint-card";
 import type { Quest } from "@/types/game";
 
 interface Props {
@@ -92,10 +93,21 @@ export default async function QuestsPage({ searchParams }: Props) {
         {tab === "tutorial" ? (
           <InitiationTab quests={tutorialQuests} />
         ) : tab === "epic" ? (
-          <div className="space-y-3">
-            {filtered.map((quest, i) => (
-              <EpicQuestCard key={quest.id} quest={quest} index={i} />
-            ))}
+          <div>
+            <SectionHintCard
+              hintKey="epic"
+              title="⚔️ Epic Quests — долгосрочные цели"
+              bullets={[
+                "Большие задачи которые разбиваются на подзадачи",
+                "Прогресс виден на дашборде",
+                "Дают синергию-очки за каждый выполненный подквест",
+              ]}
+            />
+            <div className="space-y-3">
+              {filtered.map((quest, i) => (
+                <EpicQuestCard key={quest.id} quest={quest} index={i} />
+              ))}
+            </div>
           </div>
         ) : (
           <SortableQuestList key={tab} initialQuests={filtered} />

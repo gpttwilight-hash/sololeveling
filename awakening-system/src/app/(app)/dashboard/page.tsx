@@ -7,6 +7,7 @@ import { StreakBadge } from "@/components/dashboard/streak-badge";
 import { DaySummary } from "@/components/dashboard/day-summary";
 import { EpicPreview } from "@/components/dashboard/epic-preview";
 import { SystemMessage } from "@/components/dashboard/system-message";
+import { SectionHintCard } from "@/components/shared/section-hint-card";
 import type { Profile, Quest } from "@/types/game";
 import { HunterStatusBar } from "@/components/dashboard/hunter-status-bar";
 import { HeroQuest } from "@/components/dashboard/hero-quest";
@@ -196,6 +197,16 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
+      <SectionHintCard
+        hintKey="dashboard"
+        title="⚡ Добро пожаловать, Охотник"
+        bullets={[
+          "Здесь твой штаб: ежедневные квесты, стрик, прогресс атрибутов",
+          "DispatchCard и PortalCard обновляются каждый день — не пропускай",
+          "Начни с вкладки Инициация в разделе Квесты",
+        ]}
+      />
+
       <HunterStatusBar profile={profile} streak={profile.current_streak} />
       {heroQuest && <HeroQuest quest={heroQuest} />}
 

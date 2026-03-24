@@ -6,6 +6,7 @@ import { HeatMap } from "@/components/stats/heat-map";
 import { XPLineChart } from "@/components/stats/xp-line-chart";
 import { Timeline } from "@/components/stats/timeline";
 import { RankBadge } from "@/components/shared/rank-badge";
+import { SectionHintCard } from "@/components/shared/section-hint-card";
 import { getXPProgress } from "@/lib/game/xp-calculator";
 import type { Profile, DailyProgress, UserAchievement } from "@/types/game";
 
@@ -66,6 +67,16 @@ export default async function StatsPage() {
 
   return (
     <div className="space-y-5">
+      <SectionHintCard
+        hintKey="stats"
+        title="📊 Твой прогресс"
+        bullets={[
+          "Радар показывает баланс атрибутов — STR, INT, CHA, DIS, WLT",
+          "XP-график — история активности за 90 дней",
+          "Тепловая карта — видишь паттерны своей продуктивности",
+        ]}
+      />
+
       <h1 className="text-h1" style={{ color: "var(--text-primary)" }}>Статистика</h1>
 
       {/* Summary card */}

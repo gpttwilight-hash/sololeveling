@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AchievementCard } from "@/components/achievements/achievement-card";
+import { SectionHintCard } from "@/components/shared/section-hint-card";
 import type { Profile } from "@/types/game";
 
 interface Props {
@@ -43,6 +44,16 @@ export default async function AchievementsPage({ searchParams }: Props) {
 
   return (
     <div>
+      <SectionHintCard
+        hintKey="achievements"
+        title="🏆 Достижения"
+        bullets={[
+          "Разблокируются автоматически при выполнении условий",
+          "Некоторые требуют накопленного прогресса — проверяй регулярно",
+          "Поделиться ачивкой можно через кнопку шера",
+        ]}
+      />
+
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-h1" style={{ color: "var(--text-primary)" }}>Достижения</h1>
         <span
