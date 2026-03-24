@@ -11,7 +11,7 @@ import type { QuestType, Quest } from "@/types/game";
 
 const schema = z.object({
   title: z.string().min(2, "Минимум 2 символа").max(100),
-  type: z.enum(["daily", "weekly", "epic"]),
+  type: z.enum(["daily", "weekly", "epic", "tutorial"]),
   attribute: z.enum(["str", "int", "cha", "dis", "wlt", "hidden"]),
   difficulty: z.enum(["easy", "medium", "hard", "legendary"]),
   description: z.string().optional(),
@@ -80,7 +80,7 @@ export function QuestForm({
       resolver: zodResolver(schema),
       defaultValues: initialQuest ? {
         title: initialQuest.title,
-        type: initialQuest.type as "daily" | "weekly" | "epic",
+        type: initialQuest.type as "daily" | "weekly" | "epic" | "tutorial",
         attribute: initialQuest.attribute as "str" | "int" | "cha" | "dis" | "wlt" | "hidden",
         difficulty: initialQuest.difficulty as "easy" | "medium" | "hard" | "legendary",
         description: initialQuest.description || "",

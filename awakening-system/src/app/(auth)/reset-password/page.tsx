@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { updatePassword } from "../actions";
@@ -12,16 +12,25 @@ const inputStyle = {
   color: "var(--text-primary)",
 };
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+
+  // ?recovery=1 is set by /auth/callback when handling a password-reset link.
+  // In PKCE flow the code exchange happens server-side, so the client never
+  // receives the PASSWORD_RECOVERY event — we rely on the flag instead.
+  const isRecovery = searchParams.get("recovery") === "1";
+
+  const [ready, setReady] = useState(isRecovery);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Supabase puts the recovery token in the URL hash — exchange it for a session
   useEffect(() => {
+    if (isRecovery) return; // already ready via query param
+
+    // Fallback: listen for PASSWORD_RECOVERY (implicit/hash flow)
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
@@ -29,7 +38,7 @@ export default function ResetPasswordPage() {
       }
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isRecovery]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -132,5 +141,13 @@ export default function ResetPasswordPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

@@ -40,7 +40,7 @@ type QuestRow = {
   user_id: string;
   title: string;
   description: string | null;
-  type: "daily" | "weekly" | "epic";
+  type: "daily" | "weekly" | "epic" | "tutorial";
   difficulty: "easy" | "medium" | "hard" | "legendary";
   attribute: "str" | "int" | "cha" | "dis" | "wlt" | "hidden";
   xp_reward: number;
@@ -178,7 +178,7 @@ export interface Database {
           id?: string;
           user_id: string;
           title: string;
-          type: "daily" | "weekly" | "epic";
+          type: "daily" | "weekly" | "epic" | "tutorial";
           attribute: "str" | "int" | "cha" | "dis" | "wlt" | "hidden";
           xp_reward: number;
           coin_reward: number;
@@ -286,6 +286,16 @@ export interface Database {
     Functions: {
       insert_default_rewards: {
         Args: { p_user_id: string };
+        Returns: void;
+      };
+      complete_quest: {
+        Args: {
+          p_quest_id: string;
+          p_user_id: string;
+          p_xp_earned: number;
+          p_coins_earned: number;
+          p_attr_column: string;
+        };
         Returns: void;
       };
     };

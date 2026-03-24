@@ -93,6 +93,34 @@ export async function completeOnboarding(formData: FormData) {
     if (questsError) console.error("[onboarding] quests insert error:", questsError);
   }
 
+  // Seed tutorial quests — teach the app mechanics by doing
+  const tutorialQuests = [
+    { title: "Выполни свой первый ежедневный квест", xp_reward: 20, coin_reward: 10, attribute: "dis" },
+    { title: "Создай собственный квест",              xp_reward: 15, coin_reward: 8,  attribute: "int" },
+    { title: "Загляни в Магазин и изучи награды",    xp_reward: 10, coin_reward: 5,  attribute: "wlt" },
+    { title: "Потрать монеты на любую награду",       xp_reward: 15, coin_reward: 10, attribute: "wlt" },
+    { title: "Создай Epic Quest",                     xp_reward: 20, coin_reward: 10, attribute: "dis" },
+    { title: "Открой раздел Статистика",              xp_reward: 10, coin_reward: 5,  attribute: "int" },
+    { title: "Открой раздел Достижения",              xp_reward: 10, coin_reward: 5,  attribute: "int" },
+    { title: "Выполни 3 квеста за один день",         xp_reward: 25, coin_reward: 15, attribute: "dis" },
+    { title: "Поддержи streak 2 дня подряд",          xp_reward: 30, coin_reward: 20, attribute: "dis" },
+  ].map((q, i) => ({
+    user_id: user.id,
+    title: q.title,
+    type: "tutorial" as const,
+    attribute: q.attribute as "str" | "int" | "cha" | "dis" | "wlt" | "hidden",
+    difficulty: "easy" as const,
+    xp_reward: q.xp_reward,
+    coin_reward: q.coin_reward,
+    is_active: true,
+    is_completed: false,
+    is_recurring: false,
+    sort_order: i,
+  }));
+
+  const { error: tutorialError } = await supabase.from("quests").insert(tutorialQuests);
+  if (tutorialError) console.error("[onboarding] tutorial quests insert error:", tutorialError);
+
   // Insert default rewards
   const { error: rewardsError } = await supabase.rpc("insert_default_rewards", { p_user_id: user.id });
   if (rewardsError) console.error("[onboarding] rewards rpc error:", rewardsError);

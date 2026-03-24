@@ -7,6 +7,7 @@ import { StreakBadge } from "@/components/dashboard/streak-badge";
 import { DaySummary } from "@/components/dashboard/day-summary";
 import { EpicPreview } from "@/components/dashboard/epic-preview";
 import { SystemMessage } from "@/components/dashboard/system-message";
+import { SectionHintCard } from "@/components/shared/section-hint-card";
 import type { Profile, Quest } from "@/types/game";
 import { HunterStatusBar } from "@/components/dashboard/hunter-status-bar";
 import { HeroQuest } from "@/components/dashboard/hero-quest";
@@ -19,6 +20,7 @@ import { shouldShowMilestone } from "@/lib/game/milestone-templates";
 import { DispatchCard } from "@/components/dashboard/dispatch-card";
 import { PortalCard } from "@/components/dashboard/portal-card";
 import { MilestoneOverlay } from "@/components/dashboard/milestone-overlay";
+import { InitiationWidget } from "@/components/dashboard/initiation-widget";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
@@ -45,6 +47,17 @@ export default async function DashboardPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabaseAny = supabase as any;
+
+  // ── Reset recurring daily quests that were completed before today ─────────
+  // Runs on every dashboard load — no cron dependency needed.
+  await supabase
+    .from("quests")
+    .update({ is_completed: false, last_reset_date: today })
+    .eq("user_id", user.id)
+    .eq("type", "daily")
+    .eq("is_recurring", true)
+    .eq("is_completed", true)
+    .or(`last_reset_date.is.null,last_reset_date.lt.${today}`);
 
   // ── Parallel data fetching ────────────────────────────────────────────────
   const [
@@ -90,6 +103,7 @@ export default async function DashboardPage() {
 
   // ── Quests ────────────────────────────────────────────────────────────────
   const allQuests = (allQuestsResult.data ?? []) as unknown as Quest[];
+  const tutorialQuests = allQuests.filter((q) => q.type === "tutorial");
   const dailyQuests = allQuests.filter((q) => q.type === "daily");
   const weeklyQuests = allQuests.filter((q) => q.type === "weekly");
   const epicQuests = allQuests.filter((q) => q.type === "epic" && !q.is_completed);
@@ -183,6 +197,16 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
+      <SectionHintCard
+        hintKey="dashboard"
+        title="⚡ Добро пожаловать, Охотник"
+        bullets={[
+          "Здесь твой штаб: ежедневные квесты, стрик, прогресс атрибутов",
+          "DispatchCard и PortalCard обновляются каждый день — не пропускай",
+          "Начни с вкладки Инициация в разделе Квесты",
+        ]}
+      />
+
       <HunterStatusBar profile={profile} streak={profile.current_streak} />
       {heroQuest && <HeroQuest quest={heroQuest} />}
 
@@ -206,6 +230,7 @@ export default async function DashboardPage() {
 
       {bossData && <BossBattle boss={bossData} />}
       <ProfileCard profile={profile} />
+      <InitiationWidget tutorialQuests={tutorialQuests} />
 
       {/* System Message */}
       <SystemMessage

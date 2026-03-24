@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isPremium } from "@/lib/game/subscriptions";
+import { sanitizeAIQuest, AI_QUEST_LIMITS } from "@/lib/game/ai-quest-sanitizer";
 import type { Profile, QuestType, QuestDifficulty, AttributeKey } from "@/types/game";
 
 const VALID_TYPES = new Set<QuestType>(["daily", "weekly", "epic"]);
@@ -56,23 +57,26 @@ export async function POST(req: NextRequest) {
 
   // Bulk insert generated quests — coerce AI strings to strict union types
   const now = new Date().toISOString();
-  const quests = responseData.quests.map((q) => ({
-    user_id: user.id,
-    title: q.title,
-    description: q.description ?? null,
-    type: toQuestType(q.type),
-    difficulty: toQuestDifficulty(q.difficulty),
-    attribute: toAttributeKey(q.attribute),
-    xp_reward: q.xp_reward,
-    coin_reward: q.coin_reward,
-    is_active: true,
-    is_completed: false,
-    is_recurring: q.type === "daily",
-    streak: 0,
-    sort_order: q.week * 10,
-    created_at: now,
-    updated_at: now,
-  }));
+  const quests = responseData.quests.slice(0, AI_QUEST_LIMITS.MAX_COUNT).map((q) => {
+    const sanitized = sanitizeAIQuest(q);
+    return {
+      user_id: user.id,
+      title: q.title,
+      description: q.description ?? null,
+      type: toQuestType(q.type),
+      difficulty: toQuestDifficulty(q.difficulty),
+      attribute: toAttributeKey(q.attribute),
+      xp_reward: sanitized.xp_reward,
+      coin_reward: sanitized.coin_reward,
+      is_active: true,
+      is_completed: false,
+      is_recurring: q.type === "daily",
+      streak: 0,
+      sort_order: (q.week ?? 0) * 10,
+      created_at: now,
+      updated_at: now,
+    };
+  });
 
   const { data: inserted, error: insertError } = await supabase
     .from("quests")

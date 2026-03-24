@@ -37,8 +37,10 @@ export async function proxy(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Auth routes: redirect to dashboard if already logged in
-  if (user && (pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/forgot-password"))) {
+  // Auth routes: redirect to dashboard if already logged in.
+  // /forgot-password and /reset-password are excluded — a logged-in user might
+  // still want to reset their password.
+  if (user && (pathname.startsWith("/login") || pathname.startsWith("/signup"))) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

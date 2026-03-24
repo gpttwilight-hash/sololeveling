@@ -14,7 +14,7 @@ export async function completeQuest(questId: string, partial = false): Promise<C
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  // Fetch quest
+  // Fetch quest metadata before RPC (needed for attr column, parent_id, logging)
   const { data: rawQuest, error: questErr } = await supabase
     .from("quests")
     .select("*")
@@ -22,21 +22,22 @@ export async function completeQuest(questId: string, partial = false): Promise<C
     .eq("user_id", user.id)
     .single();
 
+  if (questErr || !rawQuest) throw new Error("Quest not found");
   const quest = rawQuest as unknown as Quest;
-
-  if (questErr || !quest) throw new Error(`Quest not found (id=${questId}, err=${questErr?.message})`);
+  // Optimistic early-exit only — NOT an authoritative guard.
+  // The RPC's FOR UPDATE lock is the only atomic safeguard against double-completion.
   if (quest.is_completed) throw new Error("Quest already completed");
 
-  // Fetch current profile
-  const { data: profile, error: profileErr } = await supabase
+  // Fetch profile snapshot for debuff calculation (used for level/rank delta post-RPC)
+  const { data: rawProfile, error: profileErr } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .single();
+  if (profileErr || !rawProfile) throw new Error("Profile not found");
+  const profile = rawProfile as unknown as Profile;
 
-  if (profileErr || !profile) throw new Error(`Profile not found (err=${profileErr?.message})`);
-
-  // Apply debuff penalty if active
+  // Apply debuff penalty (computed in JS, passed to RPC as pre-computed values)
   const debuffs = (profile.active_debuffs as Array<{ type: "laziness" | "burnout"; xp_penalty?: number; triggered_at: string }>) ?? [];
   const laziness = debuffs.find((d) => d.type === "laziness");
   const rawPenalty = laziness ? Math.min(100, Math.max(0, laziness.xp_penalty ?? 25)) : 0;
@@ -45,7 +46,7 @@ export async function completeQuest(questId: string, partial = false): Promise<C
   const xpEarned = Math.round(quest.xp_reward * xpPenaltyMultiplier * partialMultiplier);
   const coinsEarned = Math.round(quest.coin_reward * partialMultiplier);
 
-  // Determine attribute XP column — validate against known set
+  // Validate attribute column
   const VALID_ATTR_COLUMNS = ["str_xp", "int_xp", "cha_xp", "dis_xp", "wlt_xp", "hidden_xp"] as const;
   type AttrColumn = typeof VALID_ATTR_COLUMNS[number];
   const candidateCol = `${quest.attribute}_xp`;
@@ -54,51 +55,49 @@ export async function completeQuest(questId: string, partial = false): Promise<C
   }
   const attrColumn = candidateCol as AttrColumn;
 
-  // Check level/rank changes
+  // ATOMIC: Complete quest + update all profile stats in one DB transaction
+  const { error: rpcError } = await supabase.rpc("complete_quest", {
+    p_quest_id: questId,
+    p_user_id: user.id,
+    p_xp_earned: xpEarned,
+    p_coins_earned: coinsEarned,
+    p_attr_column: attrColumn,
+  });
+  if (rpcError) throw new Error(`Failed to complete quest: ${rpcError.message}`);
+
+  // --- Non-atomic post-completion work ---
+
+  // Compute level/rank changes using pre-RPC profile snapshot
   const { leveledUp, newLevel } = checkLevelUp(profile.total_xp, xpEarned);
-  const rankedUp = checkLevelUp(profile.total_xp, xpEarned).leveledUp
-    ? checkRankUp(profile.level, newLevel)
-    : false;
+  const rankedUp = leveledUp ? checkRankUp(profile.level, newLevel) : false;
   const newRank = rankedUp ? getRankFromLevel(newLevel).id : undefined;
 
-  const newTotalXP = profile.total_xp + xpEarned;
-  const newCoins = profile.coins + coinsEarned;
-  const newQuestsCompleted = profile.total_quests_completed + 1;
+  // Update level/rank on profile if leveled up
+  if (leveledUp || rankedUp) {
+    const { error: levelUpdateError } = await supabase
+      .from("profiles")
+      .update({
+        level: newLevel,
+        ...(newRank ? { rank: newRank } : {}),
+      })
+      .eq("id", user.id);
+    if (levelUpdateError) throw new Error("Failed to update level/rank");
+  }
 
-  // Update profile
-  await supabase
-    .from("profiles")
-    .update({
-      total_xp: newTotalXP,
-      coins: newCoins,
-      total_quests_completed: newQuestsCompleted,
-      level: newLevel,
-      ...(newRank ? { rank: newRank } : {}),
-      [attrColumn]: (profile[attrColumn] as number) + xpEarned,
-    })
-    .eq("id", user.id);
-
-  // Mark quest as completed
-  await supabase
-    .from("quests")
-    .update({ is_completed: true, streak: (quest.streak ?? 0) + 1 })
-    .eq("id", questId);
-
-  // NCT System: If this quest is linked to an Epic, increment Epic's progress & synergy
+  // NCT System: If linked to an Epic, increment Epic's progress & synergy
   if (quest.parent_id) {
     const { data: rawEpic } = await supabase
       .from("quests")
       .select("*")
       .eq("id", quest.parent_id)
       .single();
-
     if (rawEpic) {
       const parentEpic = rawEpic as unknown as Quest;
       await supabase
         .from("quests")
         .update({
           current_value: (parentEpic.current_value ?? 0) + 1,
-          synergy_points: (parentEpic.synergy_points ?? 0) + 10 // e.g. 10 pts per habit completed
+          synergy_points: (parentEpic.synergy_points ?? 0) + 10,
         })
         .eq("id", quest.parent_id);
     }
@@ -127,27 +126,28 @@ export async function completeQuest(questId: string, partial = false): Promise<C
   const completedCount = (dp?.quests_completed ?? 0) + 1;
   const totalCount = dp?.quests_total ?? 1;
 
-  await supabase
-    .from("daily_progress")
-    .upsert({
-      user_id: user.id,
-      date: today,
-      quests_completed: completedCount,
-      quests_total: totalCount,
-      xp_earned: (dp?.xp_earned ?? 0) + xpEarned,
-      completion_rate: completedCount / totalCount,
-      is_rest_day: dp?.is_rest_day ?? false,
-    });
+  await supabase.from("daily_progress").upsert({
+    user_id: user.id,
+    date: today,
+    quests_completed: completedCount,
+    quests_total: totalCount,
+    xp_earned: (dp?.xp_earned ?? 0) + xpEarned,
+    completion_rate: completedCount / totalCount,
+    is_rest_day: dp?.is_rest_day ?? false,
+  });
 
-  // Check achievements
+  // Check achievements against updated profile state
+  const newTotalXP = profile.total_xp + xpEarned;
+  const newCoins = profile.coins + coinsEarned;
   const updatedProfile: Profile = {
     ...profile,
     total_xp: newTotalXP,
     coins: newCoins,
-    total_quests_completed: newQuestsCompleted,
+    total_quests_completed: profile.total_quests_completed + 1,
     level: newLevel,
     rank: newRank ?? profile.rank,
     [attrColumn]: (profile[attrColumn] as number) + xpEarned,
+    total_coins_earned: (profile.total_coins_earned ?? 0) + coinsEarned,
     active_debuffs: debuffs,
   };
 
@@ -159,12 +159,13 @@ export async function completeQuest(questId: string, partial = false): Promise<C
 
   const unlockedIds = new Set(userAchievements?.map((a) => a.achievement_id) ?? []);
   const newlyUnlocked: string[] = [];
-
   const toUnlock: { user_id: string; achievement_id: string }[] = [];
+
   for (const achievement of allAchievements ?? []) {
     if (unlockedIds.has(achievement.id)) continue;
     const met = evaluateCondition(achievement.condition as AchievementCondition, {
       profile: updatedProfile,
+      totalCoinsEarned: updatedProfile.total_coins_earned ?? 0,
     });
     if (met) {
       toUnlock.push({ user_id: user.id, achievement_id: achievement.id });
@@ -203,6 +204,17 @@ export async function redeemReward(rewardId: string): Promise<{ success: boolean
     .single();
 
   if (!reward) throw new Error("Reward not found");
+
+  // Enforce cooldown: check if enough time has elapsed since last redemption
+  if (reward.cooldown_hours && reward.last_redeemed_at) {
+    const lastRedeemed = new Date(reward.last_redeemed_at as string).getTime();
+    const cooldownMs = (reward.cooldown_hours as number) * 60 * 60 * 1000;
+    const cooldownEndsAt = lastRedeemed + cooldownMs;
+    if (Date.now() < cooldownEndsAt) {
+      const remainingHours = Math.ceil((cooldownEndsAt - Date.now()) / (60 * 60 * 1000));
+      throw new Error(`Награда недоступна ещё ${remainingHours} ч.`);
+    }
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -245,9 +257,15 @@ export async function declareRestDay(): Promise<void> {
     date: today,
     is_rest_day: true,
   });
+  const { data: profileForRest } = await supabase
+    .from("profiles")
+    .select("rest_days_used_this_week")
+    .eq("id", user.id)
+    .single();
+
   await supabase
     .from("profiles")
-    .update({ rest_days_used_this_week: 1 })
+    .update({ rest_days_used_this_week: ((profileForRest?.rest_days_used_this_week as number) ?? 0) + 1 })
     .eq("id", user.id);
 
   revalidatePath("/dashboard");
@@ -269,7 +287,7 @@ export async function updateEpicProgress(questId: string, value: number): Promis
 
 export async function createQuest(data: {
   title: string;
-  type: "daily" | "weekly" | "epic";
+  type: "daily" | "weekly" | "epic" | "tutorial";
   attribute: "str" | "int" | "cha" | "dis" | "wlt" | "hidden";
   difficulty: "easy" | "medium" | "hard" | "legendary";
   description?: string;
@@ -292,7 +310,7 @@ export async function createQuest(data: {
   if (!title || title.length === 0) throw new Error("Название квеста не может быть пустым");
   if (title.length > 120) throw new Error("Название квеста слишком длинное (макс. 120 символов)");
 
-  const VALID_TYPES = ["daily", "weekly", "epic"] as const;
+  const VALID_TYPES = ["daily", "weekly", "epic", "tutorial"] as const;
   const VALID_ATTRS = ["str", "int", "cha", "dis", "wlt", "hidden"] as const;
   const VALID_DIFFS = ["easy", "medium", "hard", "legendary"] as const;
   if (!(VALID_TYPES as readonly string[]).includes(data.type)) throw new Error("Неверный тип квеста");
@@ -336,7 +354,7 @@ export async function createQuest(data: {
 
 export async function updateQuest(questId: string, data: {
   title: string;
-  type: "daily" | "weekly" | "epic";
+  type: "daily" | "weekly" | "epic" | "tutorial";
   attribute: "str" | "int" | "cha" | "dis" | "wlt" | "hidden";
   difficulty: "easy" | "medium" | "hard" | "legendary";
   description?: string;
@@ -354,6 +372,11 @@ export async function updateQuest(questId: string, data: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
+  // Input validation — mirrors createQuest validation
+  const title = data.title?.trim();
+  if (!title || title.length === 0) throw new Error("Название квеста не может быть пустым");
+  if (title.length > 120) throw new Error("Название квеста слишком длинное (макс. 120 символов)");
+
   const xpByDifficulty: Record<string, number> = {
     easy: 8, medium: 15, hard: 30, legendary: 80,
   };
@@ -363,7 +386,7 @@ export async function updateQuest(questId: string, data: {
   const { error: updateError } = await supabase
     .from("quests")
     .update({
-      title: data.title,
+      title,
       type: data.type,
       attribute: data.attribute,
       difficulty: data.difficulty,
@@ -522,7 +545,7 @@ export async function reorderQuests(questIds: string[]): Promise<void> {
   if (!user) throw new Error("Not authenticated");
 
   // Perform updates in parallel
-  const updates = questIds.map((id, index) =>
+  const updates = questIds.slice(0, 500).map((id, index) =>
     supabase
       .from("quests")
       .update({ sort_order: index })
