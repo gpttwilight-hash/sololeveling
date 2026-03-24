@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { EpicQuestCard } from "@/components/quests/epic-quest-card";
 import { QuestForm } from "@/components/quests/quest-form";
 import { SortableQuestList } from "@/components/quests/sortable-quest-list";
+import { InitiationTab } from "@/components/quests/initiation-tab";
 import type { Quest } from "@/types/game";
 
 interface Props {
@@ -10,7 +11,7 @@ interface Props {
 }
 
 export default async function QuestsPage({ searchParams }: Props) {
-  const { tab = "daily" } = await searchParams;
+  const { tab: rawTab } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -35,6 +36,10 @@ export default async function QuestsPage({ searchParams }: Props) {
 
   const allQuests = (data ?? []) as unknown as Quest[];
 
+  const tutorialQuests = allQuests.filter((q) => q.type === "tutorial");
+  const hasTutorial = tutorialQuests.some((q) => !q.is_completed);
+  const tab = rawTab ?? (hasTutorial ? "tutorial" : "daily");
+
   // Attach linked tasks to their parent Epics
   allQuests.forEach(quest => {
     if (quest.parent_id) {
@@ -50,6 +55,7 @@ export default async function QuestsPage({ searchParams }: Props) {
   const activeEpics = allQuests.filter((q) => q.type === "epic" && q.is_active);
 
   const TABS = [
+    ...(hasTutorial ? [{ key: "tutorial", label: "⚡ Инициация" }] : []),
     { key: "daily", label: "Ежедневные" },
     { key: "weekly", label: "Еженедельные" },
     { key: "epic", label: "Эпические" },
@@ -83,7 +89,9 @@ export default async function QuestsPage({ searchParams }: Props) {
 
       {/* Quest list */}
       <div className="mb-4">
-        {tab === "epic" ? (
+        {tab === "tutorial" ? (
+          <InitiationTab quests={tutorialQuests} />
+        ) : tab === "epic" ? (
           <div className="space-y-3">
             {filtered.map((quest, i) => (
               <EpicQuestCard key={quest.id} quest={quest} index={i} />
@@ -93,7 +101,7 @@ export default async function QuestsPage({ searchParams }: Props) {
           <SortableQuestList key={tab} initialQuests={filtered} />
         )}
 
-        {filtered.length === 0 && (
+        {tab !== "tutorial" && filtered.length === 0 && (
           <div
             className="text-center py-12 rounded-2xl"
             style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)" }}
@@ -110,7 +118,9 @@ export default async function QuestsPage({ searchParams }: Props) {
       </div>
 
       {/* Add quest form */}
-      <QuestForm key={tab} initialType={tab as "daily" | "weekly" | "epic"} activeEpics={activeEpics} />
+      {tab !== "tutorial" && (
+        <QuestForm key={tab} initialType={tab as "daily" | "weekly" | "epic"} activeEpics={activeEpics} />
+      )}
     </div>
   );
 }

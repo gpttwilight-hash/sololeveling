@@ -19,6 +19,7 @@ import { shouldShowMilestone } from "@/lib/game/milestone-templates";
 import { DispatchCard } from "@/components/dashboard/dispatch-card";
 import { PortalCard } from "@/components/dashboard/portal-card";
 import { MilestoneOverlay } from "@/components/dashboard/milestone-overlay";
+import { InitiationWidget } from "@/components/dashboard/initiation-widget";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
@@ -101,6 +102,7 @@ export default async function DashboardPage() {
 
   // ── Quests ────────────────────────────────────────────────────────────────
   const allQuests = (allQuestsResult.data ?? []) as unknown as Quest[];
+  const tutorialQuests = allQuests.filter((q) => q.type === "tutorial");
   const dailyQuests = allQuests.filter((q) => q.type === "daily");
   const weeklyQuests = allQuests.filter((q) => q.type === "weekly");
   const epicQuests = allQuests.filter((q) => q.type === "epic" && !q.is_completed);
@@ -217,6 +219,7 @@ export default async function DashboardPage() {
 
       {bossData && <BossBattle boss={bossData} />}
       <ProfileCard profile={profile} />
+      <InitiationWidget tutorialQuests={tutorialQuests} />
 
       {/* System Message */}
       <SystemMessage
