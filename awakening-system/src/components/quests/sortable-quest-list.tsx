@@ -21,13 +21,14 @@ import { CSS } from "@dnd-kit/utilities";
 import { QuestCard } from "./quest-card";
 import { EpicQuestCard } from "./epic-quest-card";
 import { reorderQuests } from "@/app/(app)/actions";
-import type { Quest } from "@/types/game";
+import type { Quest, HabitWeek } from "@/types/game";
 
 interface SortableQuestListProps {
     initialQuests: Quest[];
+    habitWeeks?: Record<string, HabitWeek>;
 }
 
-export function SortableQuestList({ initialQuests }: SortableQuestListProps) {
+export function SortableQuestList({ initialQuests, habitWeeks }: SortableQuestListProps) {
     const [items, setItems] = useState(initialQuests);
     const [, startTransition] = useTransition();
 
@@ -74,7 +75,7 @@ export function SortableQuestList({ initialQuests }: SortableQuestListProps) {
                             {quest.type === "epic" ? (
                                 <EpicQuestCard quest={quest} index={index} />
                             ) : (
-                                <QuestCard quest={quest} index={index} />
+                                <QuestCard quest={quest} index={index} habitWeek={habitWeeks?.[quest.id]} />
                             )}
                         </SortableItem>
                     ))}
