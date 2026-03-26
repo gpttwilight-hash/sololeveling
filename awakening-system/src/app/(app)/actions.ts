@@ -234,6 +234,7 @@ export async function redeemReward(rewardId: string): Promise<{ success: boolean
     reward_id: rewardId,
     reward_title: reward.title,
     cost: reward.cost,
+    source: "shop",
   });
   await supabase
     .from("rewards")

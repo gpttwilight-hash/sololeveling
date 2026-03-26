@@ -40,6 +40,11 @@ export interface Quest {
   sort_order: number;
   streak: number;
 
+  // Habit frequency & reward
+  frequency_per_week: number; // 1-7, default 7
+  reward_emoji?: string;
+  reward_title?: string;
+
   // Habit science fields
   trigger_time?: string;      // "07:30"
   trigger_location?: string;  // "Дома"
@@ -157,6 +162,19 @@ export interface CompleteQuestResult {
   newRank?: string;
   achievementsUnlocked: string[];
   debuffRemoved?: string;
+}
+
+export interface HabitWeek {
+  id: string;
+  quest_id: string;
+  user_id: string;
+  week_start: string;
+  target: number;
+  completions: number;
+  is_success: boolean;
+  reward_claimed: boolean;
+  claimed_at?: string;
+  created_at: string;
 }
 
 export interface XPProgress {
