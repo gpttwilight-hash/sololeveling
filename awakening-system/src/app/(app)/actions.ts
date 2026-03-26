@@ -7,7 +7,6 @@ import { checkRankUp, getRankFromLevel } from "@/lib/game/rank-system";
 import { getLevelFromTotalXP } from "@/lib/game/xp-calculator";
 import { evaluateCondition } from "@/lib/game/achievement-checker";
 import type { CompleteQuestResult, AchievementCondition, Profile, Quest } from "@/types/game";
-import { isPremium } from "@/lib/game/subscriptions";
 import { getWeekStart } from "@/lib/game/habit-week";
 
 export async function completeQuest(questId: string, partial = false): Promise<CompleteQuestResult> {
