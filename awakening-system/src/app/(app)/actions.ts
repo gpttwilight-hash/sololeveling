@@ -752,3 +752,56 @@ export async function completePortalStep(
   revalidatePath("/dashboard");
   return { isFinished, xpEarned };
 }
+
+export async function claimHabitReward(questId: string): Promise<{ success: boolean }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  // Fetch quest to verify ownership and reward fields
+  const { data: quest, error: questErr } = await supabase
+    .from("quests")
+    .select("reward_emoji, reward_title, frequency_per_week")
+    .eq("id", questId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (questErr || !quest) throw new Error("Quest not found");
+  if (!quest.reward_emoji || !quest.reward_title) {
+    throw new Error("Quest has no reward configured");
+  }
+
+  // Find this week's habit_weeks record
+  const weekStart = getWeekStart();
+  const { data: hw, error: hwErr } = await supabase
+    .from("habit_weeks")
+    .select("is_success, reward_claimed")
+    .eq("quest_id", questId)
+    .eq("week_start", weekStart)
+    .single();
+
+  if (hwErr || !hw) throw new Error("No habit week record found");
+  if (!hw.is_success) throw new Error("Weekly target not yet reached");
+  if (hw.reward_claimed) throw new Error("Reward already claimed this week");
+
+  // Claim the reward
+  await supabase
+    .from("habit_weeks")
+    .update({ reward_claimed: true, claimed_at: new Date().toISOString() })
+    .eq("quest_id", questId)
+    .eq("week_start", weekStart);
+
+  // Log the reward
+  await supabase.from("reward_logs").insert({
+    user_id: user.id,
+    reward_id: null,
+    reward_title: quest.reward_title,
+    cost: 0,
+    source: "habit",
+  });
+
+  revalidatePath("/quests");
+  revalidatePath("/dashboard");
+
+  return { success: true };
+}
