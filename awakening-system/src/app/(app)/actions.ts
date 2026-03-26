@@ -8,6 +8,7 @@ import { getLevelFromTotalXP } from "@/lib/game/xp-calculator";
 import { evaluateCondition } from "@/lib/game/achievement-checker";
 import type { CompleteQuestResult, AchievementCondition, Profile, Quest } from "@/types/game";
 import { isPremium } from "@/lib/game/subscriptions";
+import { getWeekStart } from "@/lib/game/habit-week";
 
 export async function completeQuest(questId: string, partial = false): Promise<CompleteQuestResult> {
   const supabase = await createClient();
@@ -66,6 +67,42 @@ export async function completeQuest(questId: string, partial = false): Promise<C
   if (rpcError) throw new Error(`Failed to complete quest: ${rpcError.message}`);
 
   // --- Non-atomic post-completion work ---
+
+  // Habit week tracking: increment weekly completions for recurring daily quests
+  if (quest.type === "daily" && quest.is_recurring) {
+    const weekStart = getWeekStart();
+
+    // Ensure habit_weeks row exists for this week (upsert)
+    await supabase.from("habit_weeks").upsert(
+      {
+        quest_id: questId,
+        user_id: user.id,
+        week_start: weekStart,
+        target: quest.frequency_per_week ?? 7,
+      },
+      { onConflict: "quest_id,week_start", ignoreDuplicates: true }
+    );
+
+    // Increment completions
+    const { data: hw } = await supabase
+      .from("habit_weeks")
+      .select("completions, target")
+      .eq("quest_id", questId)
+      .eq("week_start", weekStart)
+      .single();
+
+    if (hw) {
+      const newCompletions = hw.completions + 1;
+      await supabase
+        .from("habit_weeks")
+        .update({
+          completions: newCompletions,
+          is_success: newCompletions >= hw.target,
+        })
+        .eq("quest_id", questId)
+        .eq("week_start", weekStart);
+    }
+  }
 
   // Compute level/rank changes using pre-RPC profile snapshot
   const { leveledUp, newLevel } = checkLevelUp(profile.total_xp, xpEarned);
