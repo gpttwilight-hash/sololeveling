@@ -301,6 +301,9 @@ export async function createQuest(data: {
   min_description?: string;
   parent_id?: string;
   narrative?: string;
+  frequency_per_week?: number;
+  reward_emoji?: string;
+  reward_title?: string;
 }): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -320,6 +323,12 @@ export async function createQuest(data: {
 
   if (data.target_value !== undefined && (data.target_value < 1 || data.target_value > 99999)) {
     throw new Error("Целевое значение должно быть от 1 до 99999");
+  }
+  if (data.frequency_per_week !== undefined && (data.frequency_per_week < 1 || data.frequency_per_week > 7)) {
+    throw new Error("Частота должна быть от 1 до 7 раз в неделю");
+  }
+  if (data.reward_title && data.reward_title.length > 100) {
+    throw new Error("Название награды слишком длинное (макс. 100 символов)");
   }
 
   const xpByDifficulty: Record<string, number> = {
@@ -346,6 +355,9 @@ export async function createQuest(data: {
     min_description: data.min_description || null,
     parent_id: data.parent_id || null,
     narrative: data.narrative || null,
+    frequency_per_week: data.frequency_per_week ?? 7,
+    reward_emoji: data.reward_emoji || null,
+    reward_title: data.reward_title || null,
   });
 
   if (insertError) throw new Error(`Не удалось создать квест: ${insertError.message}`);
@@ -368,6 +380,9 @@ export async function updateQuest(questId: string, data: {
   min_description?: string;
   parent_id?: string;
   narrative?: string;
+  frequency_per_week?: number;
+  reward_emoji?: string;
+  reward_title?: string;
 }): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -403,6 +418,9 @@ export async function updateQuest(questId: string, data: {
       min_description: data.min_description || null,
       parent_id: data.parent_id || null,
       narrative: data.narrative || null,
+      frequency_per_week: data.frequency_per_week ?? 7,
+      reward_emoji: data.reward_emoji || null,
+      reward_title: data.reward_title || null,
     })
     .eq("id", questId)
     .eq("user_id", user.id);
