@@ -24,6 +24,9 @@ const schema = z.object({
   min_description: z.string().optional(),
   parent_id: z.string().optional(),
   narrative: z.string().optional(),
+  frequency_per_week: z.number().min(1).max(7).optional(),
+  reward_emoji: z.string().optional(),
+  reward_title: z.string().max(100).optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -72,6 +75,9 @@ export function QuestForm({
   const [showTriggers, setShowTriggers] = useState(
     !!(initialQuest?.trigger_time || initialQuest?.trigger_location || initialQuest?.trigger_anchor)
   );
+  const [showReward, setShowReward] = useState(
+    !!initialQuest?.reward_emoji || !!initialQuest?.reward_title
+  );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -93,15 +99,23 @@ export function QuestForm({
         min_description: initialQuest.min_description || "",
         parent_id: initialQuest.parent_id || "",
         narrative: initialQuest.narrative || "",
+        frequency_per_week: initialQuest?.frequency_per_week ?? 7,
+        reward_emoji: initialQuest?.reward_emoji ?? undefined,
+        reward_title: initialQuest?.reward_title ?? undefined,
       } : {
         type: initialType,
         attribute: "str",
         difficulty: "medium",
-        is_recurring: initialType !== "epic"
+        is_recurring: initialType !== "epic",
+        frequency_per_week: 7,
+        reward_emoji: undefined,
+        reward_title: undefined,
       },
     });
 
   const questType = watch("type");
+  const isRecurring = watch("is_recurring");
+  const frequencyPerWeek = watch("frequency_per_week");
 
   function onSubmit(data: FormData) {
     setSubmitError(null);
@@ -294,6 +308,156 @@ export function QuestForm({
               </div>
               <Repeat className="w-4 h-4 ml-auto" style={{ color: "var(--color-xp)" }} />
             </label>
+          )}
+
+          {/* Frequency & Reward — only for recurring daily quests */}
+          {questType === "daily" && isRecurring && (
+            <div
+              className="rounded-xl p-3 space-y-3"
+              style={{
+                background: "var(--bg-tertiary)",
+                border: "1px solid var(--border-subtle)",
+              }}
+            >
+              {/* Frequency chips */}
+              <div>
+                <label
+                  className="block text-xs font-medium mb-2"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  Частота (раз в неделю)
+                </label>
+                <div className="flex gap-1.5">
+                  {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setValue("frequency_per_week", n)}
+                      className="w-9 h-9 rounded-lg text-xs font-semibold transition-all"
+                      style={{
+                        background:
+                          frequencyPerWeek === n
+                            ? "rgba(99,102,241,0.2)"
+                            : "var(--bg-secondary)",
+                        border: `1px solid ${
+                          frequencyPerWeek === n
+                            ? "rgba(99,102,241,0.5)"
+                            : "var(--border-subtle)"
+                        }`,
+                        color:
+                          frequencyPerWeek === n
+                            ? "var(--color-xp)"
+                            : "var(--text-secondary)",
+                      }}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reward section */}
+              {(frequencyPerWeek ?? 7) < 7 ? (
+                <div className="space-y-2">
+                  <label
+                    className="block text-xs font-medium"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    Награда за выполнение цели (опционально)
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["💆", "🍕", "🎮", "🎬", "☕", "🛍️", "📱", "🎵", "🍰", "🏖️", "💤", "🎨"].map(
+                      (emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => setValue("reward_emoji", emoji)}
+                          className="w-9 h-9 rounded-lg text-lg transition-all"
+                          style={{
+                            background:
+                              watch("reward_emoji") === emoji
+                                ? "rgba(251,191,36,0.2)"
+                                : "var(--bg-secondary)",
+                            border: `1px solid ${
+                              watch("reward_emoji") === emoji
+                                ? "rgba(251,191,36,0.5)"
+                                : "var(--border-subtle)"
+                            }`,
+                          }}
+                        >
+                          {emoji}
+                        </button>
+                      )
+                    )}
+                  </div>
+                  <input
+                    {...register("reward_title")}
+                    placeholder="Название награды (напр. Массаж)"
+                    className="w-full px-3 py-2 rounded-xl text-sm"
+                    style={{
+                      background: "var(--bg-secondary)",
+                      border: "1px solid var(--border-subtle)",
+                      color: "var(--text-primary)",
+                    }}
+                  />
+                </div>
+              ) : (
+                !showReward ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowReward(true)}
+                    className="text-xs transition-colors"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
+                    + Добавить награду
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <label
+                      className="block text-xs font-medium"
+                      style={{ color: "var(--text-secondary)" }}
+                    >
+                      Награда за выполнение цели (опционально)
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {["💆", "🍕", "🎮", "🎬", "☕", "🛍️", "📱", "🎵", "🍰", "🏖️", "💤", "🎨"].map(
+                        (emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => setValue("reward_emoji", emoji)}
+                            className="w-9 h-9 rounded-lg text-lg transition-all"
+                            style={{
+                              background:
+                                watch("reward_emoji") === emoji
+                                  ? "rgba(251,191,36,0.2)"
+                                  : "var(--bg-secondary)",
+                              border: `1px solid ${
+                                watch("reward_emoji") === emoji
+                                  ? "rgba(251,191,36,0.5)"
+                                  : "var(--border-subtle)"
+                              }`,
+                            }}
+                          >
+                            {emoji}
+                          </button>
+                        )
+                      )}
+                    </div>
+                    <input
+                      {...register("reward_title")}
+                      placeholder="Название награды (напр. Массаж)"
+                      className="w-full px-3 py-2 rounded-xl text-sm"
+                      style={{
+                        background: "var(--bg-secondary)",
+                        border: "1px solid var(--border-subtle)",
+                        color: "var(--text-primary)",
+                      }}
+                    />
+                  </div>
+                )
+              )}
+            </div>
           )}
 
           {/* Description */}

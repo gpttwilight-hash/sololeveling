@@ -5,7 +5,8 @@ import { QuestForm } from "@/components/quests/quest-form";
 import { SortableQuestList } from "@/components/quests/sortable-quest-list";
 import { InitiationTab } from "@/components/quests/initiation-tab";
 import { SectionHintCard } from "@/components/shared/section-hint-card";
-import type { Quest } from "@/types/game";
+import { getWeekStart, shouldResetQuest, computeWeeklyStreak } from "@/lib/game/habit-week";
+import type { Quest, HabitWeek } from "@/types/game";
 
 interface Props {
   searchParams: Promise<{ tab?: string }>;
@@ -17,16 +18,96 @@ export default async function QuestsPage({ searchParams }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Reset recurring daily quests completed before today
+  // Reset recurring daily quests with habit_weeks logic
   const today = new Date().toISOString().split("T")[0];
-  await supabase
+  const weekStart = getWeekStart();
+
+  // Fetch all recurring daily quests for reset + habit_weeks logic
+  const { data: recurringQuests } = await supabase
     .from("quests")
-    .update({ is_completed: false, last_reset_date: today })
+    .select("id, frequency_per_week, is_completed, last_reset_date, streak")
     .eq("user_id", user.id)
     .eq("type", "daily")
-    .eq("is_recurring", true)
-    .eq("is_completed", true)
-    .or(`last_reset_date.is.null,last_reset_date.lt.${today}`);
+    .eq("is_recurring", true);
+
+  // Fetch existing habit_weeks for this week
+  const { data: existingHWs } = await supabase
+    .from("habit_weeks")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("week_start", weekStart);
+
+  const hwByQuestId = new Map(
+    (existingHWs ?? []).map((hw) => [hw.quest_id, hw])
+  );
+
+  // Process each recurring quest
+  for (const rq of recurringQuests ?? []) {
+    const freq = rq.frequency_per_week ?? 7;
+    let hw = hwByQuestId.get(rq.id);
+
+    // Lazy-create habit_weeks row if missing for this week
+    if (!hw) {
+      // Check previous week for streak calculation
+      const prevWeekStart = getWeekStart(
+        new Date(new Date(weekStart).getTime() - 7 * 24 * 60 * 60 * 1000)
+      );
+      const { data: prevHW } = await supabase
+        .from("habit_weeks")
+        .select("is_success")
+        .eq("quest_id", rq.id)
+        .eq("week_start", prevWeekStart)
+        .maybeSingle();
+
+      // Update streak based on previous week result
+      const newStreak = computeWeeklyStreak(
+        rq.streak ?? 0,
+        freq,
+        prevHW?.is_success ?? null
+      );
+      if (newStreak !== (rq.streak ?? 0)) {
+        await supabase
+          .from("quests")
+          .update({ streak: newStreak })
+          .eq("id", rq.id);
+      }
+
+      // Create this week's record (ignore if already exists from concurrent request)
+      await supabase
+        .from("habit_weeks")
+        .upsert(
+          {
+            quest_id: rq.id,
+            user_id: user.id,
+            week_start: weekStart,
+            target: freq,
+          },
+          { onConflict: "quest_id,week_start", ignoreDuplicates: true }
+        );
+
+      // Fetch the actual row (may have been created by concurrent request)
+      const { data: hwRow } = await supabase
+        .from("habit_weeks")
+        .select("*")
+        .eq("quest_id", rq.id)
+        .eq("week_start", weekStart)
+        .single();
+
+      hw = hwRow ?? undefined;
+    }
+
+    // Reset quest if needed
+    const weeklyCompletions = hw?.completions ?? 0;
+    if (
+      rq.is_completed &&
+      shouldResetQuest(rq.last_reset_date, today, freq, weeklyCompletions)
+    ) {
+      await supabase
+        .from("quests")
+        .update({ is_completed: false, last_reset_date: today })
+        .eq("id", rq.id);
+    }
+  }
 
   const { data } = await supabase
     .from("quests")
@@ -36,6 +117,17 @@ export default async function QuestsPage({ searchParams }: Props) {
     .order("sort_order");
 
   const allQuests = (data ?? []) as unknown as Quest[];
+
+  // Fetch habit_weeks for current week to pass to quest cards
+  const { data: habitWeeksData } = await supabase
+    .from("habit_weeks")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("week_start", getWeekStart());
+
+  const habitWeeksMap = new Map<string, HabitWeek>(
+    (habitWeeksData ?? []).map((hw) => [hw.quest_id, hw as unknown as HabitWeek])
+  );
 
   const tutorialQuests = allQuests.filter((q) => q.type === "tutorial");
   const hasTutorial = tutorialQuests.some((q) => !q.is_completed);
@@ -110,7 +202,11 @@ export default async function QuestsPage({ searchParams }: Props) {
             </div>
           </div>
         ) : (
-          <SortableQuestList key={tab} initialQuests={filtered} />
+          <SortableQuestList
+            key={tab}
+            initialQuests={filtered}
+            habitWeeks={Object.fromEntries(habitWeeksMap)}
+          />
         )}
 
         {tab !== "tutorial" && filtered.length === 0 && (

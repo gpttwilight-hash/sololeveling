@@ -3,11 +3,11 @@
 import { useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Flame, Clock, MapPin, Anchor, Trash2, Pencil } from "lucide-react";
-import { completeQuest, deleteQuest } from "@/app/(app)/actions";
+import { completeQuest, deleteQuest, claimHabitReward } from "@/app/(app)/actions";
 import { getLevelNarrative, getRankNarrative } from "@/lib/game/level-narratives";
 import { QuestForm } from "./quest-form";
 import { toast } from "sonner";
-import type { Quest } from "@/types/game";
+import type { Quest, HabitWeek } from "@/types/game";
 
 const ATTR_LABELS: Record<string, string> = {
   str: "STR", int: "INT", cha: "CHA", dis: "DIS", wlt: "WLT", hidden: "???",
@@ -27,9 +27,10 @@ const DIFFICULTY_LABELS: Record<string, string> = {
 interface QuestCardProps {
   quest: Quest;
   index?: number;
+  habitWeek?: HabitWeek;
 }
 
-export function QuestCard({ quest, index = 0 }: QuestCardProps) {
+export function QuestCard({ quest, index = 0, habitWeek }: QuestCardProps) {
   const [done, setDone] = useState(quest.is_completed);
   const [showXP, setShowXP] = useState(false);
   const [lastXP, setLastXP] = useState(quest.xp_reward);
@@ -37,6 +38,14 @@ export function QuestCard({ quest, index = 0 }: QuestCardProps) {
   const [deleted, setDeleted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [, startTransition] = useTransition();
+  const [claimed, setClaimed] = useState(habitWeek?.reward_claimed ?? false);
+  const [claiming, setClaiming] = useState(false);
+
+  const weeklyGoalMet = habitWeek
+    ? habitWeek.completions >= habitWeek.target
+    : false;
+  const hasReward = !!quest.reward_emoji && !!quest.reward_title;
+  const canClaim = weeklyGoalMet && hasReward && !claimed;
 
   const color = ATTR_COLORS[quest.attribute] ?? "var(--color-xp)";
   const hasTriggers = quest.trigger_time || quest.trigger_location || quest.trigger_anchor;
@@ -65,6 +74,22 @@ export function QuestCard({ quest, index = 0 }: QuestCardProps) {
       } catch {
         setDone(false);
         toast.error("Ошибка при выполнении квеста. Попробуйте еще раз.");
+      }
+    });
+  }
+
+  function handleClaim() {
+    if (!canClaim || claiming) return;
+    setClaiming(true);
+    startTransition(async () => {
+      try {
+        await claimHabitReward(quest.id);
+        setClaimed(true);
+        toast.success(`${quest.reward_emoji} ${quest.reward_title} получена!`);
+      } catch {
+        toast.error("Не удалось забрать награду");
+      } finally {
+        setClaiming(false);
       }
     });
   }
@@ -216,12 +241,57 @@ export function QuestCard({ quest, index = 0 }: QuestCardProps) {
                     {quest.streak}
                   </span>
                 )}
+                {habitWeek && (quest.frequency_per_week ?? 7) < 7 && (
+                  <span
+                    className="text-xs font-medium px-1.5 py-0.5 rounded"
+                    style={{
+                      background: weeklyGoalMet
+                        ? "rgba(16,185,129,0.15)"
+                        : "rgba(99,102,241,0.1)",
+                      color: weeklyGoalMet
+                        ? "var(--color-success)"
+                        : "var(--color-xp)",
+                    }}
+                  >
+                    {habitWeek.completions}/{habitWeek.target} /нед
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
+          {/* Claim habit reward button */}
+          {canClaim && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              onClick={handleClaim}
+              disabled={claiming}
+              className="mt-3 w-full py-2.5 rounded-xl text-sm font-semibold transition-all hover:brightness-110 active:scale-[0.98]"
+              style={{
+                background: "rgba(251,191,36,0.15)",
+                border: "1px solid rgba(251,191,36,0.4)",
+                color: "var(--color-level-up)",
+              }}
+            >
+              {claiming ? "..." : `Забрать ${quest.reward_emoji} ${quest.reward_title}`}
+            </motion.button>
+          )}
+          {claimed && hasReward && (
+            <div
+              className="mt-3 w-full py-2 rounded-xl text-center text-sm font-medium"
+              style={{
+                background: "rgba(16,185,129,0.1)",
+                border: "1px solid rgba(16,185,129,0.3)",
+                color: "var(--color-success)",
+              }}
+            >
+              {quest.reward_emoji} Награда получена!
+            </div>
+          )}
+
           {/* Action buttons */}
-          {!done && !confirmDelete && (
+          {!done && !confirmDelete && !((quest.frequency_per_week ?? 7) < 7 && weeklyGoalMet) && (
             <div className={`mt-3 grid gap-2 ${quest.min_description ? "grid-cols-2" : "grid-cols-1"}`}>
               {quest.min_description && (
                 <button

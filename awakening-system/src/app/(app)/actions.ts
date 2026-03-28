@@ -7,7 +7,7 @@ import { checkRankUp, getRankFromLevel } from "@/lib/game/rank-system";
 import { getLevelFromTotalXP } from "@/lib/game/xp-calculator";
 import { evaluateCondition } from "@/lib/game/achievement-checker";
 import type { CompleteQuestResult, AchievementCondition, Profile, Quest } from "@/types/game";
-import { isPremium } from "@/lib/game/subscriptions";
+import { getWeekStart } from "@/lib/game/habit-week";
 
 export async function completeQuest(questId: string, partial = false): Promise<CompleteQuestResult> {
   const supabase = await createClient();
@@ -66,6 +66,45 @@ export async function completeQuest(questId: string, partial = false): Promise<C
   if (rpcError) throw new Error(`Failed to complete quest: ${rpcError.message}`);
 
   // --- Non-atomic post-completion work ---
+
+  // Habit week tracking: increment weekly completions for recurring daily quests
+  if (quest.type === "daily" && quest.is_recurring) {
+    const weekStart = getWeekStart();
+
+    // Ensure habit_weeks row exists for this week (upsert)
+    await supabase.from("habit_weeks").upsert(
+      {
+        quest_id: questId,
+        user_id: user.id,
+        week_start: weekStart,
+        target: quest.frequency_per_week ?? 7,
+      },
+      { onConflict: "quest_id,week_start", ignoreDuplicates: true }
+    );
+
+    // Increment completions
+    // Note: race condition is mitigated by the complete_quest RPC's FOR UPDATE lock
+    // which prevents double-completion of the same quest — a second concurrent call
+    // would fail at the "Quest already completed" check above.
+    const { data: hw } = await supabase
+      .from("habit_weeks")
+      .select("completions, target")
+      .eq("quest_id", questId)
+      .eq("week_start", weekStart)
+      .single();
+
+    if (hw) {
+      const newCompletions = hw.completions + 1;
+      await supabase
+        .from("habit_weeks")
+        .update({
+          completions: newCompletions,
+          is_success: newCompletions >= hw.target,
+        })
+        .eq("quest_id", questId)
+        .eq("week_start", weekStart);
+    }
+  }
 
   // Compute level/rank changes using pre-RPC profile snapshot
   const { leveledUp, newLevel } = checkLevelUp(profile.total_xp, xpEarned);
@@ -234,6 +273,7 @@ export async function redeemReward(rewardId: string): Promise<{ success: boolean
     reward_id: rewardId,
     reward_title: reward.title,
     cost: reward.cost,
+    source: "shop",
   });
   await supabase
     .from("rewards")
@@ -300,6 +340,9 @@ export async function createQuest(data: {
   min_description?: string;
   parent_id?: string;
   narrative?: string;
+  frequency_per_week?: number;
+  reward_emoji?: string;
+  reward_title?: string;
 }): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -319,6 +362,12 @@ export async function createQuest(data: {
 
   if (data.target_value !== undefined && (data.target_value < 1 || data.target_value > 99999)) {
     throw new Error("Целевое значение должно быть от 1 до 99999");
+  }
+  if (data.frequency_per_week !== undefined && (data.frequency_per_week < 1 || data.frequency_per_week > 7)) {
+    throw new Error("Частота должна быть от 1 до 7 раз в неделю");
+  }
+  if (data.reward_title && data.reward_title.length > 100) {
+    throw new Error("Название награды слишком длинное (макс. 100 символов)");
   }
 
   const xpByDifficulty: Record<string, number> = {
@@ -345,6 +394,9 @@ export async function createQuest(data: {
     min_description: data.min_description || null,
     parent_id: data.parent_id || null,
     narrative: data.narrative || null,
+    frequency_per_week: data.frequency_per_week ?? 7,
+    reward_emoji: data.reward_emoji || null,
+    reward_title: data.reward_title || null,
   });
 
   if (insertError) throw new Error(`Не удалось создать квест: ${insertError.message}`);
@@ -367,6 +419,9 @@ export async function updateQuest(questId: string, data: {
   min_description?: string;
   parent_id?: string;
   narrative?: string;
+  frequency_per_week?: number;
+  reward_emoji?: string;
+  reward_title?: string;
 }): Promise<void> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -402,6 +457,9 @@ export async function updateQuest(questId: string, data: {
       min_description: data.min_description || null,
       parent_id: data.parent_id || null,
       narrative: data.narrative || null,
+      frequency_per_week: data.frequency_per_week ?? 7,
+      reward_emoji: data.reward_emoji || null,
+      reward_title: data.reward_title || null,
     })
     .eq("id", questId)
     .eq("user_id", user.id);
@@ -695,4 +753,57 @@ export async function completePortalStep(
 
   revalidatePath("/dashboard");
   return { isFinished, xpEarned };
+}
+
+export async function claimHabitReward(questId: string): Promise<{ success: boolean }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  // Fetch quest to verify ownership and reward fields
+  const { data: quest, error: questErr } = await supabase
+    .from("quests")
+    .select("reward_emoji, reward_title, frequency_per_week")
+    .eq("id", questId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (questErr || !quest) throw new Error("Quest not found");
+  if (!quest.reward_emoji || !quest.reward_title) {
+    throw new Error("Quest has no reward configured");
+  }
+
+  // Find this week's habit_weeks record
+  const weekStart = getWeekStart();
+  const { data: hw, error: hwErr } = await supabase
+    .from("habit_weeks")
+    .select("is_success, reward_claimed")
+    .eq("quest_id", questId)
+    .eq("week_start", weekStart)
+    .single();
+
+  if (hwErr || !hw) throw new Error("No habit week record found");
+  if (!hw.is_success) throw new Error("Weekly target not yet reached");
+  if (hw.reward_claimed) throw new Error("Reward already claimed this week");
+
+  // Claim the reward
+  await supabase
+    .from("habit_weeks")
+    .update({ reward_claimed: true, claimed_at: new Date().toISOString() })
+    .eq("quest_id", questId)
+    .eq("week_start", weekStart);
+
+  // Log the reward
+  await supabase.from("reward_logs").insert({
+    user_id: user.id,
+    reward_id: null,
+    reward_title: quest.reward_title,
+    cost: 0,
+    source: "habit",
+  });
+
+  revalidatePath("/quests");
+  revalidatePath("/dashboard");
+
+  return { success: true };
 }

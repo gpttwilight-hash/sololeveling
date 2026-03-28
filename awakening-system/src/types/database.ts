@@ -47,12 +47,24 @@ type QuestRow = {
   coin_reward: number;
   is_active: boolean;
   is_completed: boolean;
+  is_recurring: boolean;
+  last_reset_date: string | null;
   sort_order: number;
   streak: number;
+  frequency_per_week: number;
+  reward_emoji: string | null;
+  reward_title: string | null;
   target_value: number | null;
   current_value: number;
   deadline: string | null;
   title_reward: string | null;
+  parent_id: string | null;
+  narrative: string | null;
+  synergy_points: number;
+  trigger_time: string | null;
+  trigger_location: string | null;
+  trigger_anchor: string | null;
+  min_description: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -126,6 +138,7 @@ type RewardLogRow = {
   reward_title: string;
   cost: number;
   redeemed_at: string;
+  source: string; // 'shop' | 'habit'
 };
 
 type UserTitleRow = {
@@ -163,6 +176,19 @@ type WaitlistRow = {
   created_at: string;
 };
 
+type HabitWeekRow = {
+  id: string;
+  quest_id: string;
+  user_id: string;
+  week_start: string;
+  target: number;
+  completions: number;
+  is_success: boolean;
+  reward_claimed: boolean;
+  claimed_at: string | null;
+  created_at: string;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -186,12 +212,24 @@ export interface Database {
           difficulty?: "easy" | "medium" | "hard" | "legendary";
           is_active?: boolean;
           is_completed?: boolean;
+          is_recurring?: boolean;
+          last_reset_date?: string | null;
           sort_order?: number;
           streak?: number;
+          frequency_per_week?: number;
+          reward_emoji?: string | null;
+          reward_title?: string | null;
           target_value?: number | null;
           current_value?: number;
           deadline?: string | null;
           title_reward?: string | null;
+          parent_id?: string | null;
+          narrative?: string | null;
+          synergy_points?: number;
+          trigger_time?: string | null;
+          trigger_location?: string | null;
+          trigger_anchor?: string | null;
+          min_description?: string | null;
         };
         Update: Partial<QuestRow>;
         Relationships: [];
@@ -279,6 +317,28 @@ export interface Database {
         Row: WaitlistRow;
         Insert: { email: string; source?: string };
         Update: Partial<WaitlistRow>;
+        Relationships: [];
+      };
+      habit_weeks: {
+        Row: HabitWeekRow;
+        Insert: {
+          id?: string;
+          quest_id: string;
+          user_id: string;
+          week_start: string;
+          target: number;
+          completions?: number;
+          is_success?: boolean;
+          reward_claimed?: boolean;
+          claimed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          completions?: number;
+          is_success?: boolean;
+          reward_claimed?: boolean;
+          claimed_at?: string | null;
+        };
         Relationships: [];
       };
     };

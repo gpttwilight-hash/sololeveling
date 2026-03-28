@@ -48,6 +48,7 @@ export async function signup(formData: FormData) {
     password,
     options: {
       data: { hunter_name: "Охотник" },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/auth/callback`,
     },
   });
 
