@@ -72,8 +72,8 @@ export default async function QuestsPage({ searchParams }: Props) {
           .eq("id", rq.id);
       }
 
-      // Create this week's record
-      const { data: inserted } = await supabase
+      // Create this week's record (ignore if already exists from concurrent request)
+      await supabase
         .from("habit_weeks")
         .upsert(
           {
@@ -83,11 +83,17 @@ export default async function QuestsPage({ searchParams }: Props) {
             target: freq,
           },
           { onConflict: "quest_id,week_start", ignoreDuplicates: true }
-        )
-        .select()
+        );
+
+      // Fetch the actual row (may have been created by concurrent request)
+      const { data: hwRow } = await supabase
+        .from("habit_weeks")
+        .select("*")
+        .eq("quest_id", rq.id)
+        .eq("week_start", weekStart)
         .single();
 
-      hw = inserted ?? undefined;
+      hw = hwRow ?? undefined;
     }
 
     // Reset quest if needed

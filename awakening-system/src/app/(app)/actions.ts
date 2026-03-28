@@ -83,6 +83,9 @@ export async function completeQuest(questId: string, partial = false): Promise<C
     );
 
     // Increment completions
+    // Note: race condition is mitigated by the complete_quest RPC's FOR UPDATE lock
+    // which prevents double-completion of the same quest — a second concurrent call
+    // would fail at the "Quest already completed" check above.
     const { data: hw } = await supabase
       .from("habit_weeks")
       .select("completions, target")

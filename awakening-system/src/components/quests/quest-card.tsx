@@ -85,6 +85,9 @@ export function QuestCard({ quest, index = 0, habitWeek }: QuestCardProps) {
       try {
         await claimHabitReward(quest.id);
         setClaimed(true);
+        toast.success(`${quest.reward_emoji} ${quest.reward_title} получена!`);
+      } catch {
+        toast.error("Не удалось забрать награду");
       } finally {
         setClaiming(false);
       }
