@@ -177,6 +177,19 @@ export interface HabitWeek {
   created_at: string;
 }
 
+export interface QuestLog {
+  id: string;
+  user_id: string;
+  quest_id: string | null;
+  quest_title: string;
+  quest_type: string;
+  attribute: string;
+  xp_earned: number;
+  coins_earned: number;
+  completed_at: string;
+  date: string;
+}
+
 export interface XPProgress {
   level: number;
   currentXP: number;

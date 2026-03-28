@@ -59,6 +59,16 @@ export default async function DashboardPage() {
     .eq("is_completed", true)
     .or(`last_reset_date.is.null,last_reset_date.lt.${today}`);
 
+  // ── Reset recurring weekly quests that were completed before this week ──
+  await supabase
+    .from("quests")
+    .update({ is_completed: false, last_reset_date: today })
+    .eq("user_id", user.id)
+    .eq("type", "weekly")
+    .eq("is_recurring", true)
+    .eq("is_completed", true)
+    .or(`last_reset_date.is.null,last_reset_date.lt.${weekStart}`);
+
   // ── Parallel data fetching ────────────────────────────────────────────────
   const [
     bossResult,
@@ -104,8 +114,8 @@ export default async function DashboardPage() {
   // ── Quests ────────────────────────────────────────────────────────────────
   const allQuests = (allQuestsResult.data ?? []) as unknown as Quest[];
   const tutorialQuests = allQuests.filter((q) => q.type === "tutorial");
-  const dailyQuests = allQuests.filter((q) => q.type === "daily");
-  const weeklyQuests = allQuests.filter((q) => q.type === "weekly");
+  const dailyQuests = allQuests.filter((q) => q.type === "daily" && (q.is_recurring || !q.is_completed));
+  const weeklyQuests = allQuests.filter((q) => q.type === "weekly" && (q.is_recurring || !q.is_completed));
   const epicQuests = allQuests.filter((q) => q.type === "epic" && !q.is_completed);
   const heroQuest = dailyQuests.find((q) => !q.is_completed) ?? null;
 

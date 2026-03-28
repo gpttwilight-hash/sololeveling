@@ -5,8 +5,9 @@ import { QuestForm } from "@/components/quests/quest-form";
 import { SortableQuestList } from "@/components/quests/sortable-quest-list";
 import { InitiationTab } from "@/components/quests/initiation-tab";
 import { SectionHintCard } from "@/components/shared/section-hint-card";
+import { QuestHistory } from "@/components/quests/quest-history";
 import { getWeekStart, shouldResetQuest, computeWeeklyStreak } from "@/lib/game/habit-week";
-import type { Quest, HabitWeek } from "@/types/game";
+import type { Quest, HabitWeek, QuestLog } from "@/types/game";
 
 interface Props {
   searchParams: Promise<{ tab?: string }>;
@@ -109,6 +110,16 @@ export default async function QuestsPage({ searchParams }: Props) {
     }
   }
 
+  // ── Reset recurring weekly quests that were completed before this week ──
+  await supabase
+    .from("quests")
+    .update({ is_completed: false, last_reset_date: today })
+    .eq("user_id", user.id)
+    .eq("type", "weekly")
+    .eq("is_recurring", true)
+    .eq("is_completed", true)
+    .or(`last_reset_date.is.null,last_reset_date.lt.${weekStart}`);
+
   const { data } = await supabase
     .from("quests")
     .select("*, subquests(*)")
@@ -133,6 +144,20 @@ export default async function QuestsPage({ searchParams }: Props) {
   const hasTutorial = tutorialQuests.some((q) => !q.is_completed);
   const tab = rawTab ?? (hasTutorial ? "tutorial" : "daily");
 
+  // Fetch quest history when history tab is active
+  let questLogs: QuestLog[] = [];
+  if (tab === "history") {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const { data: logsData } = await supabase
+      .from("quest_logs")
+      .select("*")
+      .eq("user_id", user.id)
+      .gte("date", thirtyDaysAgo.toISOString().split("T")[0])
+      .order("completed_at", { ascending: false });
+    questLogs = (logsData ?? []) as unknown as QuestLog[];
+  }
+
   // Attach linked tasks to their parent Epics
   allQuests.forEach(quest => {
     if (quest.parent_id) {
@@ -144,7 +169,12 @@ export default async function QuestsPage({ searchParams }: Props) {
     }
   });
 
-  const filtered = allQuests.filter((q) => q.type === tab);
+  const filtered = allQuests.filter((q) => {
+    if (q.type !== tab) return false;
+    if (q.type === "daily" && q.is_recurring) return true;
+    if (q.type === "weekly" && q.is_recurring) return true;
+    return !q.is_completed;
+  });
   const activeEpics = allQuests.filter((q) => q.type === "epic" && q.is_active);
 
   const TABS = [
@@ -152,6 +182,7 @@ export default async function QuestsPage({ searchParams }: Props) {
     { key: "daily", label: "Ежедневные" },
     { key: "weekly", label: "Еженедельные" },
     { key: "epic", label: "Эпические" },
+    { key: "history", label: "История" },
   ];
 
   return (
@@ -182,7 +213,9 @@ export default async function QuestsPage({ searchParams }: Props) {
 
       {/* Quest list */}
       <div className="mb-4">
-        {tab === "tutorial" ? (
+        {tab === "history" ? (
+          <QuestHistory logs={questLogs} />
+        ) : tab === "tutorial" ? (
           <InitiationTab quests={tutorialQuests} />
         ) : tab === "epic" ? (
           <div>
@@ -209,7 +242,7 @@ export default async function QuestsPage({ searchParams }: Props) {
           />
         )}
 
-        {tab !== "tutorial" && filtered.length === 0 && (
+        {tab !== "tutorial" && tab !== "history" && filtered.length === 0 && (
           <div
             className="text-center py-12 rounded-2xl"
             style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-subtle)" }}
@@ -226,7 +259,7 @@ export default async function QuestsPage({ searchParams }: Props) {
       </div>
 
       {/* Add quest form */}
-      {tab !== "tutorial" && (
+      {tab !== "tutorial" && tab !== "history" && (
         <QuestForm key={tab} initialType={tab as "daily" | "weekly" | "epic"} activeEpics={activeEpics} />
       )}
     </div>
