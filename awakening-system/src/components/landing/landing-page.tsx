@@ -1,5 +1,6 @@
 "use client";
 
+import { DottedSurface } from "@/components/ui/dotted-surface";
 import { LandingNav } from "./landing-nav";
 import { HeroSection } from "./hero-section";
 import { ProblemSection } from "./problem-section";
@@ -13,6 +14,7 @@ import { LandingFooter } from "./landing-footer";
 export function LandingPage() {
   return (
     <div style={{ minHeight: "100vh", background: "#06060C", color: "#EEEEF0" }}>
+      <DottedSurface />
       <LandingNav />
       <HeroSection />
       <ProblemSection />
