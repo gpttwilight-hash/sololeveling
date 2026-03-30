@@ -12,7 +12,7 @@ import { LandingFooter } from "./landing-footer";
 
 export function LandingPage() {
   return (
-    <div style={{ minHeight: "100vh", background: "#0A0A0F", color: "#F0F0F5" }}>
+    <div style={{ minHeight: "100vh", background: "#06060C", color: "#EEEEF0" }}>
       <LandingNav />
       <HeroSection />
       <ProblemSection />

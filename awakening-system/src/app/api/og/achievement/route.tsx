@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
           justifyContent: "center",
           width: "100%",
           height: "100%",
-          background: "#0A0A0F",
+          background: "#06060C",
           color: "white",
           fontFamily: "monospace",
           position: "relative",

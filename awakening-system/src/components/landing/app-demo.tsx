@@ -127,7 +127,7 @@ export function AppDemo() {
       <div
         className="relative rounded-[28px] overflow-hidden border border-white/10"
         style={{
-          background: "linear-gradient(145deg, #12121A, #0A0A0F)",
+          background: "linear-gradient(145deg, #12121F, #06060C)",
           boxShadow: "0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.08)",
         }}
       >

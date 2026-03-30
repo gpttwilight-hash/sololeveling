@@ -70,7 +70,7 @@ export function HeroSection() {
       <div
         className="absolute inset-0"
         style={{
-          background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99,102,241,0.12) 0%, #0A0A0F 60%)",
+          background: "radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99,102,241,0.12) 0%, #06060C 60%)",
         }}
       />
       <Particles />
@@ -151,7 +151,7 @@ export function HeroSection() {
                 {(["S", "A", "M", "K"] as const).map((letter, i) => (
                   <div
                     key={i}
-                    className="w-7 h-7 rounded-full border-2 border-[#0A0A0F] flex items-center justify-center text-[9px] font-bold text-white"
+                    className="w-7 h-7 rounded-full border-2 border-[#06060C] flex items-center justify-center text-[9px] font-bold text-white"
                     style={{
                       background: (["#6366F1", "#E84855", "#10B981", "#F59E0B"] as const)[i],
                     }}
@@ -200,7 +200,7 @@ export function HeroSection() {
 
       <div
         className="absolute bottom-0 left-0 right-0 h-32 pointer-events-none"
-        style={{ background: "linear-gradient(to bottom, transparent, #0A0A0F)" }}
+        style={{ background: "linear-gradient(to bottom, transparent, #06060C)" }}
       />
     </section>
   );

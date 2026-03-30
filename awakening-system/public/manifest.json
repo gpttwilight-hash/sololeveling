@@ -1,12 +1,12 @@
 {
-  "name": "Система Пробуждения",
-  "short_name": "СП",
-  "description": "Геймификация жизни в стиле Solo Leveling",
+  "name": "ARISE",
+  "short_name": "ARISE",
+  "description": "RPG-система для реальной жизни. Прокачай реальность.",
   "start_url": "/dashboard",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0A0A0F",
-  "theme_color": "#0A0A0F",
+  "background_color": "#06060C",
+  "theme_color": "#06060C",
   "categories": ["productivity", "lifestyle"],
   "icons": [
     {

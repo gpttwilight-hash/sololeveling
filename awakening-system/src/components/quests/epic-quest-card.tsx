@@ -276,7 +276,7 @@ export function EpicQuestCard({ quest }: EpicQuestCardProps) {
               disabled={isPending}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all mb-4 disabled:opacity-50"
               style={pct >= 100
-                ? { background: "linear-gradient(135deg, #FBBF24, #F59E0B)", color: "#0A0A0F" }
+                ? { background: "linear-gradient(135deg, #FBBF24, #F59E0B)", color: "#06060C" }
                 : { background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "var(--color-level-up)" }
               }
             >
