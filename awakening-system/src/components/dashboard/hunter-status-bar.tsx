@@ -11,7 +11,7 @@ export function HunterStatusBar({ profile, streak }: Props) {
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="sticky top-0 z-40 flex items-center justify-between px-4 py-2 bg-[#0A0A0F]/80 backdrop-blur-md border-b border-white/5"
+      className="sticky top-0 z-40 flex items-center justify-between px-4 py-2 bg-[#06060C]/80 backdrop-blur-md border-b border-white/5"
     >
       <div className="flex items-center gap-2">
         <span
